@@ -20,7 +20,6 @@ import { Prisma, type BookingStatus } from '@prisma/client'
 import {
   OCCUPYING_BOOKING_STATUSES,
   can,
-  formatInZone,
   type Actor,
 } from '@roombook/shared'
 
@@ -518,7 +517,7 @@ async function queueBookingEmails(
   template: string,
   extra: Record<string, unknown> = {},
 ) {
-  const when = `${formatInZone(booking.startsAt, ctx.timeZone)} - ${formatInZone(booking.endsAt, ctx.timeZone)}`
+  const when = subjectWhen(booking.startsAt, booking.endsAt, ctx.timeZone)
 
   const payload = {
     bookingId: booking.id,
@@ -555,8 +554,59 @@ async function queueBookingEmails(
       toName: r.name,
       subject: subjectFor(template, booking.title, booking.room.name, when),
       payload: payload as Prisma.InputJsonValue,
+      // Decides whether the worker attaches a calendar invitation, and whether
+      // it adds the entry or withdraws it. Without this the message goes out
+      // with no .ics at all and the meeting never reaches anyone's calendar.
+      icsMethod: icsMethodFor(template),
     })),
   })
+}
+
+/**
+ * The iCalendar METHOD for a template, or null for messages that carry no
+ * calendar attachment.
+ *
+ * A reminder deliberately has none: the meeting is already in the recipient's
+ * calendar, and re-sending the event would be noise.
+ */
+function icsMethodFor(template: string): 'REQUEST' | 'CANCEL' | null {
+  switch (template) {
+    case 'booking_confirmed':
+    case 'booking_invitation':
+    case 'booking_moved':
+    case 'booking_updated':
+    case 'booking_pending':
+      return 'REQUEST'
+    case 'booking_cancelled':
+      return 'CANCEL'
+    default:
+      return null
+  }
+}
+
+/**
+ * The time as it appears in a subject line.
+ *
+ * Readable rather than machine-formatted: a subject is the most-read text the
+ * system produces, and "Tue 4 Nov, 09:00-10:00" tells someone scanning an
+ * inbox what they need, where an ISO timestamp does not. Kept short so it
+ * survives the ~78 characters most clients show.
+ */
+function subjectWhen(start: Date, end: Date, timeZone: string): string {
+  const day = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(start)
+  const time = (d: Date) =>
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(d)
+  return `${day}, ${time(start)}-${time(end)}`
 }
 
 function subjectFor(template: string, title: string, room: string, when: string): string {

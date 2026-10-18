@@ -22,6 +22,7 @@ import {
   ResetPasswordPage,
 } from './pages/auth/AcceptInvitePage.js'
 import { LoginPage } from './pages/auth/LoginPage.js'
+import { DevMailboxPage, EmailLogPage } from './pages/admin/EmailLogPage.js'
 import { LocationDetailPage } from './pages/admin/LocationDetailPage.js'
 import { LocationsPage } from './pages/admin/LocationsPage.js'
 import { RoomEditorPage } from './pages/admin/RoomEditorPage.js'
@@ -129,6 +130,34 @@ export function App() {
             </RequireRole>
           }
         />
+
+        <Route
+
+
+          path="/admin/emails"
+
+
+          element={
+
+
+            <RequireRole minimum="ADMIN">
+
+
+              <EmailLogPage />
+
+
+            </RequireRole>
+
+
+          }
+
+
+        />
+
+
+        <Route path="/dev/emails" element={<DevMailboxPage />} />
+
+
 
         <Route path="/admin" element={<Navigate to="/admin/rooms" replace />} />
         <Route path="*" element={<NotFoundPage />} />
