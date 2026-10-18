@@ -36,6 +36,7 @@ import {
   ValidationError,
 } from '../domain/errors.js'
 import { effectiveLimits, validateBookingRules } from '../domain/rules.js'
+import * as approvers from './ApprovalService.js'
 import * as audit from './AuditService.js'
 import { loadRoomContext, type RoomContext } from './AvailabilityService.js'
 
@@ -437,6 +438,28 @@ export async function create(
           ctx,
           status === 'PENDING_APPROVAL' ? 'booking_pending' : 'booking_confirmed',
         )
+
+        /*
+         * Tell whoever can decide.
+         *
+         * Without this the request sits until it expires: the requester is
+         * told it is pending and nobody is told it is waiting. The email to an
+         * approver is the deliberate exception to D6 (organizer-only mail),
+         * because an approver is not the organizer and has nothing to act on
+         * otherwise.
+         */
+        if (status === 'PENDING_APPROVAL') {
+          const { named, fallback } = await approvers.approversFor(
+            actor.organizationId,
+            ctx.room.id,
+          )
+          await approvers.queueApprovalRequest(
+            tx,
+            booking,
+            named ? [named] : fallback,
+            actor.id,
+          )
+        }
 
         return booking
       },

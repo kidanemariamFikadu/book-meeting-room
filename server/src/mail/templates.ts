@@ -308,7 +308,7 @@ export function hasTemplate(name: string): boolean {
   return name in RENDERERS
 }
 
-export const TEMPLATE_NAMES = Object.keys(RENDERERS).sort()
+export const templateNames = (): string[] => Object.keys(RENDERERS).sort()
 
 /**
  * Renders a template.
@@ -342,3 +342,155 @@ export function render(
     text,
   }
 }
+
+// ---------------------------------------------------------------------------
+// Approval workflow (docs/15-approvals.md section 7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tells an approver a decision is needed.
+ *
+ * Leads with who asked and what for, then how long they have. An approval
+ * request that does not say when it lapses invites people to leave it.
+ */
+const approvalRequested: Renderer = p => {
+  const expires = p.expiresAt
+    ? `This request lapses ${when(String(p.expiresAt), p.timeZone)} if nobody responds, and the room is then released.`
+    : ''
+
+  return {
+    subject: `Approval needed: ${p.title} - ${p.room}`,
+    html: layout(
+      `<h1 style="${style.heading}">${esc(p.requestedBy ?? p.organizer)} has asked for ${esc(p.room)}.</h1>` +
+        detailsHtml(p) +
+        (p.approvalNote
+          ? `<p style="${style.body}"><strong>They added:</strong></p><blockquote style="${style.quote}">${esc(p.approvalNote)}</blockquote>`
+          : '') +
+        button(p.url, 'Review the request') +
+        (expires ? `<p style="${style.muted}">${esc(expires)}</p>` : '') +
+        `<p style="${style.muted}">The room is held while this waits, so nobody can book over it.</p>`,
+    ),
+    text: [
+      `${p.requestedBy ?? p.organizer} has asked for ${p.room}.`,
+      '',
+      detailsText(p),
+      '',
+      p.approvalNote ? `They added:\n  "${p.approvalNote}"` : '',
+      '',
+      p.url ? `Review it: ${p.url}` : '',
+      expires,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  }
+}
+
+const bookingApproved: Renderer = p => ({
+  subject: `Approved: ${p.title} - ${p.room}, ${timeOnly(p.startsAt, p.timeZone)}`,
+  html: layout(
+    `<h1 style="${style.heading}">Your request has been approved.</h1>` +
+      detailsHtml(p) +
+      (p.note ? `<blockquote style="${style.quote}">${esc(p.note)}</blockquote>` : '') +
+      button(p.url, 'View booking') +
+      `<p style="${style.muted}">A calendar invitation is attached.</p>`,
+  ),
+  text: [
+    'Your request has been approved.',
+    '',
+    detailsText(p),
+    '',
+    p.note ? `Note: "${p.note}"` : '',
+    p.url ? `View it: ${p.url}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n'),
+})
+
+/** Approved, but elsewhere - which room they asked for still matters to them. */
+const bookingApprovedMoved: Renderer = p => ({
+  subject: `Approved in ${p.room}: ${p.title} - ${timeOnly(p.startsAt, p.timeZone)}`,
+  html: layout(
+    `<h1 style="${style.heading}">Your request has been approved, in a different room.</h1>` +
+      `<p style="${style.body}">You asked for <strong>${esc(p.requestedRoom)}</strong>. You have <strong>${esc(p.room)}</strong>.</p>` +
+      detailsHtml(p) +
+      (p.note ? `<blockquote style="${style.quote}">${esc(p.note)}</blockquote>` : '') +
+      button(p.url, 'View booking'),
+  ),
+  text: [
+    'Your request has been approved, in a different room.',
+    `You asked for ${p.requestedRoom}. You have ${p.room}.`,
+    '',
+    detailsText(p),
+    '',
+    p.note ? `Note: "${p.note}"` : '',
+    p.url ? `View it: ${p.url}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n'),
+})
+
+const bookingRejected: Renderer = p => ({
+  subject: `Not approved: ${p.title} - ${p.room}`,
+  html: layout(
+    `<h1 style="${style.heading}">Your request was not approved.</h1>` +
+      detailsHtml(p) +
+      quote(p.reason, p.rejectedBy ? String(p.rejectedBy) : null) +
+      button(p.url, 'Find another room') +
+      `<p style="${style.muted}">The room is free again, so it may now be booked by someone else.</p>`,
+  ),
+  text: [
+    'Your request was not approved.',
+    '',
+    detailsText(p),
+    '',
+    p.reason ? `Reason given${p.rejectedBy ? ` by ${p.rejectedBy}` : ''}:\n  "${p.reason}"` : '',
+    '',
+    p.url ? `Find another room: ${p.url}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n'),
+})
+
+/** Nobody acted in time. Both sides are told, since both were waiting. */
+const approvalExpired: Renderer = p => ({
+  subject: `Expired: ${p.title} - ${p.room}`,
+  html: layout(
+    `<h1 style="${style.heading}">This request expired without a decision.</h1>` +
+      detailsHtml(p) +
+      `<p style="${style.body}">Nobody responded in time, so the room has been released and is available again.</p>` +
+      button(`${config.APP_URL}/find`, 'Book another room'),
+  ),
+  text: [
+    'This request expired without a decision.',
+    '',
+    detailsText(p),
+    '',
+    'Nobody responded in time, so the room has been released.',
+    `Book another room: ${config.APP_URL}/find`,
+  ].join('\n'),
+})
+
+const approvalWithdrawn: Renderer = p => ({
+  subject: `Withdrawn: ${p.title} - ${p.room}`,
+  html: layout(
+    `<h1 style="${style.heading}">${esc(p.organizer)} has withdrawn this request.</h1>` +
+      detailsHtml(p) +
+      `<p style="${style.muted}">No action is needed from you.</p>`,
+  ),
+  text: [
+    `${p.organizer} has withdrawn this request.`,
+    '',
+    detailsText(p),
+    '',
+    'No action is needed from you.',
+  ].join('\n'),
+})
+
+Object.assign(RENDERERS, {
+  approval_requested: approvalRequested,
+  booking_approved: bookingApproved,
+  booking_approved_moved: bookingApprovedMoved,
+  booking_rejected: bookingRejected,
+  approval_expired: approvalExpired,
+  approval_withdrawn: approvalWithdrawn,
+})

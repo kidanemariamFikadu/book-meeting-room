@@ -13,6 +13,7 @@ import { csrfProtection } from '../../../middleware/csrf.js'
 import { apiLimiter } from '../../../middleware/rateLimit.js'
 import { sessionMiddleware } from '../../../middleware/session.js'
 import { adminRouter, devRouter } from './admin.js'
+import { approvalsRouter } from './approvals.js'
 import { authRouter } from './auth.js'
 import { availabilityRouter, bookingsRouter } from './bookings.js'
 import { locationsRouter } from './locations.js'
@@ -56,6 +57,7 @@ apiRouter.use('/locations', locationsRouter)
 apiRouter.use('/rooms', roomsRouter)
 apiRouter.use('/availability', availabilityRouter)
 apiRouter.use('/bookings', bookingsRouter)
+apiRouter.use('/approvals', approvalsRouter)
 apiRouter.use('/admin', adminRouter)
 apiRouter.use('/dev', devRouter)
 
