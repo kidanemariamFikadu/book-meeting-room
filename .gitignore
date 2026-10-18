@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+client/dist/
+server/dist/
+shared/dist/
+
+# Environment and secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+prisma/dev.db*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Test and coverage output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+.vitest/
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.sample.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Caches
+.cache/
+.temp/
+.tmp/
+.eslintcache
+.vite/
+
+# Local developer scratch
+scratch/
+*.local

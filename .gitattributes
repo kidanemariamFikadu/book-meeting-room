@@ -1,0 +1,26 @@
+# Normalize line endings: LF in the repository, native in the working tree.
+# Without this, a Windows checkout commits CRLF and every Linux CI diff is noise.
+* text=auto eol=lf
+
+# Scripts that must keep LF even on Windows checkouts
+*.sh      text eol=lf
+*.bash    text eol=lf
+Dockerfile text eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+
+# Binary — never diff or normalize
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.webp    binary
+*.woff    binary
+*.woff2   binary
+*.pdf     binary
+
+# Lockfile: keep it, but collapse it in diffs and PR reviews
+package-lock.json  -diff linguist-generated=true
