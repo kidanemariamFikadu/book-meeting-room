@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@roombook/shared": ["./shared/src/index.ts"]
+    }
+  },
+  "include": ["server/tests/**/*", "shared/tests/**/*", "vitest.config.ts", "prisma/seed.ts"]
+}
