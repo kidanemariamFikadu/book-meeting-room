@@ -12,6 +12,7 @@
 export * from './enums.js'
 export * from './errors.js'
 export * from './time.js'
+export * from './timezone.js'
 export * from './permissions.js'
 export * from './schemas/auth.js'
 export * from './schemas/booking.js'

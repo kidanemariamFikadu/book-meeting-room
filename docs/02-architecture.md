@@ -235,7 +235,7 @@ Same-origin deployment means the simplest option is also the most secure one.
 2. `useCreateBooking` mutation `POST`s to `/api/v1/bookings` with the CSRF header and an
    `Idempotency-Key`, and disables the submit button — a double click cannot create two bookings.
 3. Express: `requestId` → `session` → `auth` → `rateLimit` → Zod parse (422 on failure).
-4. `BookingService.create()` opens a **serializable transaction**:
+4. `BookingService.create()` validates, pre-checks conflicts, then opens a **transaction** for the writes:
    a. Load and authorize the room (404 if missing, inactive, or another organization).
    b. Apply the rules in [04](04-business-rules.md): hours, duration, advance window, not past.
    c. Check closures → 409. d. Check overlapping bookings → 409.
@@ -248,6 +248,16 @@ Same-origin deployment means the simplest option is also the most secure one.
 6. On 409 the component renders `ConflictPanel` inline with the conflicting booking and
    one-click alternatives from `/api/v1/availability/suggestions` ([07 §S-07](07-ui-screens.md)).
 7. Within 15 s `OutboxWorker` sends the confirmation email with its `.ics`.
+
+> **Revised during M3.** The pre-check in (c) and (d) now runs *outside* the
+> transaction, and the transaction uses READ COMMITTED rather than SERIALIZABLE.
+> Neither change weakens the guarantee: overlap is prevented by the
+> `bookings_no_overlap` exclusion constraint, which holds under every isolation
+> level, and the pre-check could never prevent a race in any case — it exists
+> only to produce a helpful message. Keeping reads out of the transaction, and
+> dropping serializable, stops a burst of simultaneous attempts on one slot from
+> starving the connection pool, which was observed turning honest 409s into 500s
+> (test T-20).
 
 Steps 4d–4h in one transaction is the core correctness property: **the booking, its audit trail
 and its notifications are all-or-nothing.**

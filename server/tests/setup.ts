@@ -15,4 +15,6 @@ process.env.RATE_LIMIT_DISABLED ??= 'true'
 process.env.APP_URL ??= 'http://localhost:5173'
 process.env.SESSION_SECRET ??= 'test-session-secret-at-least-32-chars-long'
 process.env.DATABASE_URL ??=
-  'postgresql://roombook:roombook_dev@localhost:5432/roombook_test?schema=public'
+  // A pool large enough that concurrency tests exercise the DATABASE under
+  // contention rather than merely exhausting the client connection pool.
+  'postgresql://roombook:roombook_dev@localhost:5432/roombook_test?schema=public&connection_limit=30&pool_timeout=20'
