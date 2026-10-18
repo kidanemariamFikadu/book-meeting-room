@@ -1,0 +1,43 @@
+# Local development dependencies.
+#   docker compose up -d
+#
+# Postgres is used in development as well as production so that the GIST
+# exclusion constraint preventing double-booked rooms is exercised locally.
+# Mailpit captures every outgoing email so development needs no real SMTP.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: roombook-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: roombook
+      POSTGRES_PASSWORD: roombook_dev
+      POSTGRES_DB: roombook
+      # Deterministic collation keeps ORDER BY identical across machines.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roombook -d roombook"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: roombook-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web inbox -> http://localhost:8025
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  postgres_data:
+    name: roombook_postgres_data

@@ -1,0 +1,822 @@
+// RoomBook — database schema
+//
+// Specification: docs/03-data-model.md
+// Every scoped table carries organizationId so multi-tenancy is a configuration
+// change rather than a rewrite (docs/00-overview.md).
+//
+// PostgreSQL is used in development as well as production. SQLite was specified
+// originally, but Prisma supports neither enums nor scalar lists on SQLite, and
+// — decisively — the GIST exclusion constraint that makes overlapping bookings
+// impossible cannot exist there. The system's most important invariant would be
+// untested locally. See the migration in prisma/migrations for that constraint.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  EMPLOYEE
+  ADMIN
+  OWNER
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+/// PENDING_APPROVAL, CONFIRMED and ENDED_EARLY all OCCUPY the room and take part
+/// in conflict detection. REJECTED and CANCELLED free the slot but are retained
+/// for audit. See docs/04-business-rules.md and docs/15-approvals.md.
+enum BookingStatus {
+  PENDING_APPROVAL
+  CONFIRMED
+  ENDED_EARLY
+  REJECTED
+  CANCELLED
+}
+
+enum SeriesStatus {
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum TokenPurpose {
+  INVITE
+  PASSWORD_RESET
+  EMAIL_CHANGE
+}
+
+enum AttendeeResponse {
+  NEEDS_ACTION
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum OutboxStatus {
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum CalendarProvider {
+  GOOGLE
+  MICROSOFT
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  NEEDS_REAUTH
+  REVOKED
+  ERROR
+}
+
+enum SyncState {
+  PENDING
+  SYNCED
+  FAILED
+  DETACHED
+}
+
+enum SyncJobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum AuditEventType {
+  BOOKING_CREATED
+  BOOKING_UPDATED
+  BOOKING_MOVED
+  BOOKING_CANCELLED
+  BOOKING_ENDED_EARLY
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_EXPIRED
+  BOOKING_TRANSFERRED
+  SERIES_CREATED
+  SERIES_UPDATED
+  SERIES_CANCELLED
+  ROOM_CREATED
+  ROOM_UPDATED
+  ROOM_DEACTIVATED
+  LOCATION_CREATED
+  LOCATION_UPDATED
+  LOCATION_DEACTIVATED
+  USER_INVITED
+  USER_ROLE_CHANGED
+  USER_LOCATION_ACCESS_CHANGED
+  USER_DEACTIVATED
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  CALENDAR_CONNECTED
+  CALENDAR_DISCONNECTED
+  CALENDAR_CHANGE_REJECTED
+  DISPLAY_TOKEN_CREATED
+  DISPLAY_TOKEN_REVOKED
+}
+
+/// Distinguishes a change a person made in the app from one that arrived via
+/// calendar sync or a background worker. Needed to make the audit log readable.
+enum ActorSource {
+  USER
+  ADMIN
+  SYSTEM
+  CALENDAR_SYNC
+}
+
+// ---------------------------------------------------------------------------
+// Organization
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  defaultTimezone String   @default("UTC")
+  logoUrl         String?
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  settings     OrgSettings?
+  users        User[]
+  locations    Location[]
+  rooms        Room[]
+  features     RoomFeature[]
+  bookings     Booking[]
+  series       BookingSeries[]
+  auditEvents  AuditEvent[]
+  emails       EmailOutbox[]
+  syncJobs     CalendarSyncJob[]
+  displays     DisplayToken[]
+
+  @@map("organizations")
+}
+
+/// Organization-wide defaults. Locations and rooms may override most of these;
+/// NULL at a lower level means inherit, while an explicit 0 is a real value.
+model OrgSettings {
+  organizationId String @id
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  businessHoursStart     String  @default("08:00") // local wall clock, HH:mm
+  businessHoursEnd       String  @default("18:00")
+  businessDays           Int[]   @default([1, 2, 3, 4, 5]) // ISO weekday, Monday = 1
+  slotGranularityMinutes Int     @default(15)
+  minBookingMinutes      Int     @default(15)
+  maxBookingMinutes      Int     @default(480)
+  maxAdvanceDays         Int     @default(90)
+  minNoticeMinutes       Int     @default(0)
+  reminderLeadMinutes    Int     @default(15)
+
+  /// D6: ships false — only organizers receive RoomBook email in v1. Every
+  /// attendee template is built and tested, just gated, so expanding later is a
+  /// toggle rather than a build. See docs/06-email-notifications.md section 1c.
+  notifyAttendees        Boolean @default(false)
+  allowExternalAttendees Boolean @default(true)
+
+  bookingRetentionMonths  Int @default(24)
+  recurrenceHorizonDays   Int @default(365)
+  maxOccurrencesPerSeries Int @default(500)
+  approvalWindowHours     Int @default(24)
+
+  emailFromName    String @default("RoomBook")
+  emailFromAddress String @default("rooms@example.com")
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("org_settings")
+}
+
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Stored lower-cased; uniqueness is per organization.
+  email        String
+  passwordHash String?
+  fullName     String
+  role         Role       @default(EMPLOYEE)
+  status       UserStatus @default(INVITED)
+
+  /// Display-only override. Booking times are always interpreted in the room's
+  /// location timezone (BR-T4).
+  timezone       String?
+  homeLocationId String?
+  homeLocation   Location? @relation("homeLocation", fields: [homeLocationId], references: [id], onDelete: SetNull)
+
+  emailOptOutReminders Boolean @default(false)
+
+  lastLoginAt      DateTime? @db.Timestamptz(3)
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  sessions           Session[]
+  authTokens         AuthToken[]
+  locationAccess     UserLocationAccess[]
+  organizedBookings  Booking[]            @relation("organizer")
+  createdBookings    Booking[]            @relation("createdBy")
+  cancelledBookings  Booking[]            @relation("cancelledBy")
+  approvedBookings   Booking[]            @relation("approvedBy")
+  rejectedBookings   Booking[]            @relation("rejectedBy")
+  endedEarlyBookings Booking[]            @relation("endedEarlyBy")
+  organizedSeries    BookingSeries[]      @relation("seriesOrganizer")
+  attendeeRecords    BookingAttendee[]
+  auditEvents        AuditEvent[]
+  calendarConnection CalendarConnection?
+  approverForRooms   Room[]               @relation("roomApprover")
+  createdClosures    RoomClosure[]
+  createdDisplays    DisplayToken[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, status])
+  @@index([homeLocationId])
+  @@map("users")
+}
+
+model Session {
+  /// Opaque 256-bit random value; this is the cookie contents.
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json
+  ip        String?
+  userAgent String?
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Invitations and password resets. Only the HASH is stored — the raw token
+/// exists solely in the email that was sent.
+model AuthToken {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     TokenPurpose
+  tokenHash   String       @unique
+  newEmail    String?
+  expiresAt   DateTime @db.Timestamptz(3)
+  consumedAt  DateTime? @db.Timestamptz(3)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("auth_tokens")
+}
+
+/// Location-scoped admin grants (D17, BR-L1). A user with the ADMIN role and no
+/// rows here is an organization-wide admin, which keeps single-site setups
+/// behaving exactly as before.
+model UserLocationAccess {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([userId, locationId])
+  @@index([userId])
+  @@map("user_location_access")
+}
+
+// ---------------------------------------------------------------------------
+// Places
+// ---------------------------------------------------------------------------
+
+model Location {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name    String
+  code    String?
+  address String?
+  /// IANA zone, authoritative for every room in this location (BR-T4).
+  timezone String
+  country  String?
+
+  // NULL inherits from OrgSettings; an explicit value overrides.
+  businessHoursStart  String?
+  businessHoursEnd    String?
+  businessDays        Int[]
+  minBookingMinutes   Int?
+  maxBookingMinutes   Int?
+  maxAdvanceDays      Int?
+  minNoticeMinutes    Int?
+  reminderLeadMinutes Int?
+
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  rooms        Room[]
+  holidays     LocationHoliday[]
+  adminAccess  UserLocationAccess[]
+  homeUsers    User[]               @relation("homeLocation")
+  displays     DisplayToken[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
+  @@map("locations")
+}
+
+/// Per-location non-working days. Seeded from a static country dataset rather
+/// than a live API — a booking system should not fail because a holiday service
+/// is down (D18). Matters most for recurring series, which report holidays as
+/// skipped dates in the preview.
+model LocationHoliday {
+  id         String   @id @default(uuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  /// Local calendar date, YYYY-MM-DD. Not an instant: a holiday is a local day.
+  date       String
+  name       String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([locationId, date])
+  @@index([locationId])
+  @@map("location_holidays")
+}
+
+model Room {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String
+  location       Location     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  name        String
+  capacity    Int
+  floor       String?
+  description String?
+  photoUrl    String?
+  /// Hex, for the calendar grid. Never the sole carrier of meaning (NFR-5).
+  colour      String  @default("#2563eb")
+  isActive    Boolean @default(true)
+
+  // Approval workflow (docs/15-approvals.md)
+  requiresApproval    Boolean @default(false)
+  approverUserId      String?
+  approver            User?   @relation("roomApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  approvalWindowHours Int?
+
+  // NULL inherits from the location, then the organization.
+  minBookingMinutes Int?
+  maxBookingMinutes Int?
+  maxAdvanceDays    Int?
+  minNoticeMinutes  Int?
+
+  /// Google resource calendar or Outlook room mailbox, so the room shows busy in
+  /// native scheduling tools (D14).
+  providerResourceEmail String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  features RoomFeatureAssignment[]
+  hours    RoomHours[]
+  closures RoomClosure[]
+  bookings Booking[]
+  series   BookingSeries[]
+  displays DisplayToken[]
+
+  @@unique([locationId, name])
+  @@index([organizationId, isActive])
+  @@index([locationId, isActive])
+  @@map("rooms")
+}
+
+model RoomFeature {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  icon           String?
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  rooms RoomFeatureAssignment[]
+
+  @@unique([organizationId, name])
+  @@map("room_features")
+}
+
+model RoomFeatureAssignment {
+  roomId    String
+  room      Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  featureId String
+  feature   RoomFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, featureId])
+  @@index([featureId])
+  @@map("room_feature_assignments")
+}
+
+/// Bookable windows per weekday. Absent rows mean "inherit". Times are LOCAL
+/// WALL CLOCK and resolved per date against the location zone — this is what
+/// keeps 08:00-18:00 correct across a DST transition (BR-T6).
+model RoomHours {
+  id         String @id @default(uuid())
+  roomId     String
+  room       Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  /// ISO weekday, Monday = 1.
+  weekday    Int
+  startLocal String
+  endLocal   String
+
+  @@unique([roomId, weekday, startLocal])
+  @@index([roomId])
+  @@map("room_hours")
+}
+
+model RoomClosure {
+  id          String   @id @default(uuid())
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  startsAt    DateTime @db.Timestamptz(3)
+  endsAt      DateTime @db.Timestamptz(3)
+  reason      String
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([roomId, startsAt, endsAt])
+  @@map("room_closures")
+}
+
+// ---------------------------------------------------------------------------
+// Bookings
+// ---------------------------------------------------------------------------
+
+/// A recurring meeting: the rule, plus the occurrences it generates.
+/// Stores a LOCAL start and a DURATION, never a UTC start and end — that is
+/// what keeps a 09:00 standup at 09:00 across a clock change (docs/12).
+model BookingSeries {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomId         String
+  room           Room         @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  organizerId    String
+  organizer      User         @relation("seriesOrganizer", fields: [organizerId], references: [id], onDelete: Restrict)
+
+  title       String
+  description String?
+  isPrivate   Boolean @default(false)
+
+  /// RFC 5545 RRULE text, e.g. FREQ=WEEKLY;BYDAY=TU;INTERVAL=1
+  rrule           String
+  /// First occurrence as local wall clock, YYYY-MM-DDTHH:mm
+  dtstartLocal    String
+  durationMinutes Int
+  /// IANA zone the rule is evaluated in.
+  timezone        String
+
+  /// How far this series is currently materialized. Rolled forward nightly.
+  horizonUntil DateTime @db.Timestamptz(3)
+  status       SeriesStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  bookings      Booking[]
+  calendarLinks BookingCalendarLink[]
+
+  @@index([organizationId, status])
+  @@index([status, horizonUntil])
+  @@map("booking_series")
+}
+
+model Booking {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomId         String
+  room           Room         @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  organizerId    String
+  organizer      User         @relation("organizer", fields: [organizerId], references: [id], onDelete: Restrict)
+
+  title       String
+  description String?
+  /// UTC. Half-open interval [startsAt, endsAt) — 09:00-10:00 and 10:00-11:00
+  /// do not conflict (BR-T2).
+  startsAt    DateTime @db.Timestamptz(3)
+  endsAt      DateTime @db.Timestamptz(3)
+  status      BookingStatus @default(CONFIRMED)
+  /// Others see "Busy" instead of the title; admins always see details because
+  /// they need them to move the booking (BR-P3).
+  isPrivate   Boolean       @default(false)
+
+  createdById String
+  createdBy   User   @relation("createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  cancelledAt        DateTime? @db.Timestamptz(3)
+  cancelledById      String?
+  cancelledBy        User?     @relation("cancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  cancellationReason String?
+
+  /// D3: an organizer may release their own in-progress booking. It is
+  /// truncated, not erased — endsAt moves to now and the status becomes
+  /// ENDED_EARLY, so utilization stays honest (BR-M2a).
+  endedEarlyAt   DateTime? @db.Timestamptz(3)
+  endedEarlyById String?
+  endedEarlyBy   User?     @relation("endedEarlyBy", fields: [endedEarlyById], references: [id], onDelete: SetNull)
+
+  // Approval workflow (docs/15-approvals.md)
+  approvalNote      String?
+  approvalExpiresAt DateTime? @db.Timestamptz(3)
+  approvedAt        DateTime? @db.Timestamptz(3)
+  approvedById      String?
+  approvedBy        User?     @relation("approvedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedAt        DateTime? @db.Timestamptz(3)
+  rejectedById      String?
+  rejectedBy        User?     @relation("rejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+  rejectionReason   String?
+
+  // Recurrence (docs/12-recurrence.md)
+  seriesId String?
+  series   BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  /// The occurrence's ORIGINALLY SCHEDULED local start. This is the .ics
+  /// RECURRENCE-ID and it never changes, even when the occurrence is moved —
+  /// it is how an exception is matched back to its slot in the series.
+  occurrenceStartLocal String?
+  isException          Boolean  @default(false)
+  /// Which fields diverge from the series, so a later series-wide edit knows
+  /// what not to overwrite.
+  exceptionFields      String[]
+
+  /// Stable for the booking's whole life, so calendar clients update the entry
+  /// rather than creating a second one. Incremented sequence on every change.
+  icsUid      String @unique
+  icsSequence Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  attendees     BookingAttendee[]
+  emails        EmailOutbox[]
+  calendarLinks BookingCalendarLink[]
+  syncJobs      CalendarSyncJob[]
+
+  // The hottest query in the system: overlap detection.
+  @@index([roomId, startsAt, endsAt])
+  @@index([organizationId, startsAt])
+  @@index([organizerId, startsAt])
+  @@index([seriesId, startsAt])
+  @@index([status, approvalExpiresAt])
+  @@unique([seriesId, occurrenceStartLocal])
+  @@map("bookings")
+}
+
+model BookingAttendee {
+  id        String  @id @default(uuid())
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Always populated, even for internal users — denormalized so an attendee
+  /// list survives a user being removed.
+  email       String
+  displayName String?
+
+  response    AttendeeResponse @default(NEEDS_ACTION)
+  respondedAt DateTime? @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@unique([bookingId, email])
+  @@index([userId])
+  @@map("booking_attendees")
+}
+
+// ---------------------------------------------------------------------------
+// Audit and notifications
+// ---------------------------------------------------------------------------
+
+/// Append-only. No application code path updates or deletes these rows.
+model AuditEvent {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  /// Name and email captured at the time, so history stays readable after a
+  /// user is removed.
+  actorLabel  String
+  actorSource ActorSource @default(USER)
+
+  eventType  AuditEventType
+  entityType String
+  entityId   String
+  locationId String?
+
+  /// Snapshots of the changed fields only, not the whole row.
+  before Json?
+  after  Json?
+  reason String?
+  ip     String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_events")
+}
+
+/// The queue, the log and the audit of notifications in one table. Rows are
+/// written in the SAME TRANSACTION as the change, so a rolled-back booking
+/// sends nothing (BR-N1).
+model EmailOutbox {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookingId      String?
+  booking        Booking?     @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  seriesId       String?
+
+  template String
+  /// One row per recipient — never a shared BCC, so one bad address cannot
+  /// block everyone else (BR-N2).
+  toEmail  String
+  toName   String?
+  subject  String
+
+  /// Template variables, so the body can be re-rendered or inspected later.
+  payload   Json
+  bodyHtml  String?
+  bodyText  String?
+  icsMethod String?
+
+  status      OutboxStatus @default(QUEUED)
+  attempts    Int          @default(0)
+  lastError   String?
+  /// Now for transactional mail, a future time for reminders.
+  scheduledAt DateTime     @default(now()) @db.Timestamptz(3)
+  sentAt      DateTime? @db.Timestamptz(3)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([status, scheduledAt])
+  @@index([bookingId])
+  @@index([organizationId, createdAt])
+  @@map("email_outbox")
+}
+
+// ---------------------------------------------------------------------------
+// Calendar integration (docs/13-calendar-sync.md)
+// ---------------------------------------------------------------------------
+
+model CalendarConnection {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider            CalendarProvider
+  providerAccountEmail String
+
+  /// AES-256-GCM, key from CALENDAR_TOKEN_KEY and held separately from the
+  /// database. Never logged.
+  accessTokenEncrypted  Bytes
+  refreshTokenEncrypted Bytes
+  tokenExpiresAt        DateTime @db.Timestamptz(3)
+  /// What was actually granted, which may be less than what was requested.
+  scopes                String
+
+  calendarId String @default("primary")
+  /// Google syncToken / Graph deltaLink for incremental sync.
+  syncToken  String?
+
+  webhookChannelId  String?
+  webhookResourceId String?
+  webhookExpiresAt  DateTime? @db.Timestamptz(3)
+
+  status     ConnectionStatus @default(ACTIVE)
+  lastSyncAt DateTime? @db.Timestamptz(3)
+  lastError  String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  links BookingCalendarLink[]
+
+  @@index([status, webhookExpiresAt])
+  @@map("calendar_connections")
+}
+
+model BookingCalendarLink {
+  id           String  @id @default(uuid())
+  bookingId    String?
+  booking      Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  seriesId     String?
+  series       BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  connectionId String
+  connection   CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  providerEventId    String
+  /// For a single occurrence of a recurring series.
+  providerInstanceId String?
+  providerEtag       String?
+
+  /// Hash of what RoomBook last wrote. This is the loop-prevention mechanism:
+  /// an inbound webhook matching this hash is our own echo, not a user edit.
+  lastPushedHash String?
+  syncState      SyncState @default(PENDING)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([connectionId, providerEventId, providerInstanceId])
+  @@index([bookingId])
+  @@index([seriesId])
+  @@map("booking_calendar_links")
+}
+
+/// Outbound sync queue. Same pattern as EmailOutbox and for the same reasons:
+/// enqueued transactionally, retried with backoff, durable across restarts.
+model CalendarSyncJob {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookingId      String?
+  booking        Booking?     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  seriesId       String?
+
+  operation String // CREATE | UPDATE | DELETE | INSTANCE_UPDATE
+  payload   Json
+
+  status      SyncJobStatus @default(QUEUED)
+  attempts    Int           @default(0)
+  lastError   String?
+  scheduledAt DateTime      @default(now()) @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([status, scheduledAt])
+  @@index([bookingId])
+  @@map("calendar_sync_jobs")
+}
+
+// ---------------------------------------------------------------------------
+// Display screens (D11 — the no-JavaScript path, docs/07-ui-screens.md §8)
+// ---------------------------------------------------------------------------
+
+/// A signed, revocable token for a door or lobby screen. These routes are
+/// read-only and unauthenticated by necessity, so the token is the only
+/// credential and titles are hidden unless explicitly enabled (D21).
+model DisplayToken {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Only the hash is stored; the raw token lives in the display's URL.
+  tokenHash String  @unique
+  label     String
+
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  roomId     String?
+  room       Room?     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  /// Default false: a lobby screen showing "Exit interview — J. Smith" is a
+  /// real incident, so the safe default is not optional.
+  showTitles Boolean @default(false)
+
+  lastSeenAt  DateTime? @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId])
+  @@map("display_tokens")
+}

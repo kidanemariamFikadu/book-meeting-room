@@ -1,0 +1,163 @@
+/*
+ * Design tokens.
+ *
+ * Every colour, space and radius in the app resolves to one of these. Dark mode
+ * is a redefinition of the same names rather than a parallel set of rules, and
+ * a manual override via data-theme always wins over the system preference.
+ *
+ * Specification: docs/07-ui-screens.md section 2.
+ */
+
+:root {
+  /* Surfaces */
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #eef0f4;
+  --color-border: #d9dde5;
+  --color-border-strong: #b6bdc9;
+
+  /* Text */
+  --color-text: #11161f;
+  --color-text-muted: #5b6471;
+  --color-text-subtle: #828b99;
+  --color-text-inverse: #ffffff;
+
+  /* Accent */
+  --color-accent: #2f5fd0;
+  --color-accent-hover: #264eae;
+  --color-accent-subtle: #e8eefc;
+  --color-focus: #2f5fd0;
+
+  /* Status. Always paired with a word or an icon, never colour alone (NFR-5). */
+  --color-success: #15733f;
+  --color-success-subtle: #e3f4ea;
+  --color-warning: #8a5a00;
+  --color-warning-subtle: #fcf0d9;
+  --color-danger: #b4232a;
+  --color-danger-subtle: #fbe6e7;
+  --color-pending: #6b4ea8;
+  --color-pending-subtle: #efe9fa;
+
+  /*
+   * Room hues. Ten, chosen to stay distinguishable under the common forms of
+   * colour blindness. A room colour never carries meaning on its own: the room
+   * name is always beside it.
+   */
+  --room-1: #2f5fd0;
+  --room-2: #0f7a6c;
+  --room-3: #9a4f14;
+  --room-4: #7a3fa8;
+  --room-5: #19627f;
+  --room-6: #9c2a62;
+  --room-7: #4a6b14;
+  --room-8: #b4232a;
+  --room-9: #5a5f78;
+  --room-10: #0b6ea8;
+
+  /* Type: three sizes plus a caption, as specified. */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --text-caption: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.5rem;
+
+  /* Space: a 4px scale. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-sm: 0 1px 2px rgb(16 22 31 / 8%);
+  --shadow-md: 0 4px 12px rgb(16 22 31 / 10%);
+
+  --duration-fast: 120ms;
+  --duration-base: 150ms;
+}
+
+/* System dark mode, unless the user has explicitly chosen light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #0e1218;
+    --color-surface: #161c25;
+    --color-surface-raised: #1d2530;
+    --color-surface-sunken: #0a0e13;
+    --color-border: #2a333f;
+    --color-border-strong: #3d4857;
+
+    --color-text: #e8eaf0;
+    --color-text-muted: #a3acbb;
+    --color-text-subtle: #7b8494;
+    --color-text-inverse: #0e1218;
+
+    --color-accent: #7aa2f7;
+    --color-accent-hover: #9bb8f9;
+    --color-accent-subtle: #1b2740;
+    --color-focus: #7aa2f7;
+
+    --color-success: #68d391;
+    --color-success-subtle: #12301f;
+    --color-warning: #e8b84b;
+    --color-warning-subtle: #332710;
+    --color-danger: #f28b82;
+    --color-danger-subtle: #3a1a1a;
+    --color-pending: #b79df5;
+    --color-pending-subtle: #241c3a;
+
+    --room-1: #7aa2f7;
+    --room-2: #5fd0bd;
+    --room-3: #e0a46a;
+    --room-4: #c49bf0;
+    --room-5: #6fc3e8;
+    --room-6: #f08cc0;
+    --room-7: #a8cc6a;
+    --room-8: #f28b82;
+    --room-9: #a9b0c7;
+    --room-10: #6fb8ec;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 50%);
+  }
+}
+
+/* Explicit user choice overrides the system preference in both directions. */
+:root[data-theme='dark'] {
+  --color-bg: #0e1218;
+  --color-surface: #161c25;
+  --color-surface-raised: #1d2530;
+  --color-surface-sunken: #0a0e13;
+  --color-border: #2a333f;
+  --color-border-strong: #3d4857;
+  --color-text: #e8eaf0;
+  --color-text-muted: #a3acbb;
+  --color-text-subtle: #7b8494;
+  --color-text-inverse: #0e1218;
+  --color-accent: #7aa2f7;
+  --color-accent-hover: #9bb8f9;
+  --color-accent-subtle: #1b2740;
+  --color-focus: #7aa2f7;
+  --color-success: #68d391;
+  --color-warning: #e8b84b;
+  --color-danger: #f28b82;
+  --color-pending: #b79df5;
+}
+
+/* Honour the reduced-motion preference everywhere, with no per-component opt-in. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
