@@ -1,0 +1,342 @@
+/* Admin screens. Shared by rooms, locations, users, account and settings. */
+
+.group {
+  margin-bottom: var(--space-6);
+}
+
+.groupTitle {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.groupCount {
+  font-size: var(--text-caption);
+  font-weight: 400;
+  color: var(--color-text-subtle);
+}
+
+/* ---- Tables ---- */
+.tableWrap {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.table {
+  width: 100%;
+  min-width: 46rem;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table thead th {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table tbody tr + tr {
+  border-top: 1px solid var(--color-border);
+}
+
+.table tbody th {
+  font-weight: 550;
+}
+
+.table tbody tr:hover {
+  background: var(--color-surface-sunken);
+}
+
+/* Deactivated rows stay readable but are visibly set back. Opacity alone is
+   not the only signal: every row also carries a status badge. */
+.rowInactive {
+  opacity: 0.6;
+}
+
+.roomCell {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.swatch {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border-radius: 3px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: end;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.subtle {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  font-weight: 400;
+  color: var(--color-text-subtle);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.code {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--color-text-subtle);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Forms ---- */
+.formGrid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.sectionHint {
+  margin: calc(var(--space-4) * -1 + var(--space-1)) 0 var(--space-4);
+  font-size: var(--text-caption);
+  color: var(--color-text-subtle);
+  max-width: 72ch;
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.formActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: end;
+  padding-top: var(--space-2);
+}
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.indent {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--color-border);
+}
+
+.inlineForm {
+  display: flex;
+  gap: var(--space-3);
+  align-items: end;
+}
+.inlineForm > :first-child {
+  flex: 1;
+  max-width: 24rem;
+}
+
+.featureGrid,
+.grantList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0 var(--space-4);
+}
+
+.hourRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.hourRow > select {
+  max-width: 9rem;
+}
+.hourRow > input {
+  max-width: 7.5rem;
+}
+
+/* ---- Colour and day choosers ---- */
+.swatchRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.colourDot {
+  width: 26px;
+  height: 26px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  outline-offset: 3px;
+}
+.colourDotActive {
+  border-color: var(--color-text);
+}
+
+.dayRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.dayChip {
+  min-width: 3.1rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+.dayChipOn {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* ---- Chips ---- */
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.chip {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.chipCount {
+  padding: 0 var(--space-2);
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.chipRemove {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-subtle);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+.chipRemove:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-subtle);
+}
+
+/* ---- Room cards (home) ---- */
+.roomCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-3);
+}
+
+.roomCard {
+  padding: var(--space-4);
+}
+
+.roomCardHead {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-1);
+}
+
+.plainLink {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ---- Spacing helpers ---- */
+.spaced {
+  margin-top: var(--space-3);
+}
+
+.spacedBottom {
+  margin-bottom: var(--space-4);
+}
+
+.footnote {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-5);
+  font-size: var(--text-caption);
+  color: var(--color-text-subtle);
+}
+
+@media (max-width: 640px) {
+  .inlineForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .inlineForm > :first-child {
+    max-width: none;
+  }
+}

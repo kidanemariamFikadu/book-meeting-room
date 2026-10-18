@@ -1,9 +1,11 @@
 /**
- * Application shell and routing.
+ * Routing.
  *
- * Routes are added as each milestone lands; the table below mirrors
- * docs/05-api-spec.md section 9. Route guards (RequireAuth / RequireRole)
- * arrive with authentication in M1.
+ * Route guards redirect rather than rendering a forbidden screen — a control
+ * the user cannot use should not have been linked to. They are a convenience;
+ * every endpoint re-checks permission independently.
+ *
+ * Specification: docs/05-api-spec.md section 9.
  */
 export declare function App(): import("react").JSX.Element;
 //# sourceMappingURL=App.d.ts.map

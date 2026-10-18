@@ -1,0 +1,390 @@
+/* UI primitives. Every value resolves to a token from styles/tokens.css. */
+
+/* ---- Button ---- */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  min-height: 38px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  transition:
+    background var(--duration-fast),
+    border-color var(--duration-fast);
+  white-space: nowrap;
+}
+.button:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+}
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.sm {
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-caption);
+}
+.primary {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.ghost:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+}
+.danger {
+  color: #fff;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.iconButton:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Fields ---- */
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+.label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.required {
+  color: var(--color-danger);
+}
+.input {
+  width: 100%;
+  min-height: 38px;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+.input::placeholder {
+  color: var(--color-text-subtle);
+}
+.input[aria-invalid] {
+  border-color: var(--color-danger);
+}
+.input:disabled {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+.textarea {
+  min-height: 84px;
+  padding: var(--space-3);
+  resize: vertical;
+}
+.select {
+  appearance: none;
+  padding-right: var(--space-6);
+}
+.hint {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-text-subtle);
+}
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-danger);
+}
+
+.checkRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-2) 0;
+}
+.checkbox {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+  flex: none;
+}
+.checkLabel {
+  font-size: var(--text-sm);
+}
+
+/* ---- Badges ---- */
+.badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.badge_neutral {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+.badge_success {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+}
+.badge_warning {
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+.badge_danger {
+  background: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+.badge_pending {
+  background: var(--color-pending-subtle);
+  color: var(--color-pending);
+}
+
+/* ---- Notices ---- */
+.notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--color-danger-subtle);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+.noticeInfo {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+}
+.noticeIcon {
+  flex: none;
+  margin-top: 2px;
+}
+.noticeBody {
+  flex: 1;
+}
+.noticeBody p {
+  margin: var(--space-1) 0 0;
+}
+.noticeRef {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  opacity: 0.75;
+}
+
+/* ---- Empty and loading ---- */
+.empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+.emptyTitle {
+  margin: 0;
+  font-weight: 600;
+}
+.emptyBody {
+  max-width: 44ch;
+  margin: var(--space-2) auto 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.emptyAction {
+  margin-top: var(--space-4);
+}
+
+.skeletonWrap {
+  display: grid;
+  gap: var(--space-2);
+}
+.skeletonRow {
+  height: 46px;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-sunken) 25%,
+    var(--color-border) 50%,
+    var(--color-surface-sunken) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.fullPage {
+  display: grid;
+  place-items: center;
+  gap: var(--space-3);
+  min-height: 60dvh;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ---- Dialog ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(8 11 16 / 55%);
+  animation: fade var(--duration-base) ease-out;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100vw - 32px);
+  max-width: 30rem;
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+.modalWide {
+  max-width: 44rem;
+}
+.modalHead {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.modalTitle {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.modalDescription {
+  margin: 0;
+  padding: var(--space-3) var(--space-5) 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.modalBody {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+.modalFoot {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: end;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-sunken);
+  border-top: 1px solid var(--color-border);
+}
+.consequence {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* ---- Toast ---- */
+.toastWrap {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 60;
+  display: grid;
+  gap: var(--space-2);
+  max-width: calc(100vw - 32px);
+}
+.toast {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.toastError {
+  border-left-color: var(--color-danger);
+}
+
+/* ---- Page scaffolding ---- */
+.pageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+.pageTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+.pageDescription {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  max-width: 68ch;
+}
+.pageActions {
+  display: flex;
+  gap: var(--space-2);
+}
+.card {
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
