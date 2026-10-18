@@ -355,3 +355,166 @@ export function useUpdateProfile() {
     },
   })
 }
+
+// ---------------------------------------------------------------------------
+// Availability and bookings (M3)
+// ---------------------------------------------------------------------------
+
+export interface BusySlot {
+  bookingId: string
+  startsAt: string
+  endsAt: string
+  title: string
+  organizer: { id: string; fullName: string } | null
+  status: string
+  isPrivate: boolean
+  isMine: boolean
+  canAdminister: boolean
+}
+
+export interface RoomAvailability {
+  roomId: string
+  name: string
+  capacity: number
+  floor: string | null
+  colour: string
+  features: Array<{ id: string; name: string }>
+  bookableWindows: Array<{ startsAt: string; endsAt: string }>
+  busy: BusySlot[]
+  closures: Array<{ id: string; startsAt: string; endsAt: string; reason: string }>
+  freeSlots: Array<{ startsAt: string; endsAt: string }>
+}
+
+export interface DayAvailability {
+  date: string
+  timezone: string
+  locationId: string
+  locationName: string
+  rooms: RoomAvailability[]
+}
+
+export interface FreeRoom {
+  roomId: string
+  name: string
+  capacity: number
+  floor: string | null
+  colour: string
+  locationId: string
+  locationName: string
+  timezone: string
+  features: Array<{ id: string; name: string }>
+  requiresApproval: boolean
+}
+
+export interface BookingDetail {
+  id: string
+  title: string
+  description: string | null
+  startsAt: string
+  endsAt: string
+  status: string
+  isPrivate: boolean
+  cancellationReason: string | null
+  room: {
+    id: string
+    name: string
+    capacity: number
+    floor: string | null
+    colour: string
+    requiresApproval: boolean
+    location: { id: string; name: string; timezone: string; address: string | null }
+  }
+  organizer: { id: string; fullName: string; email: string }
+  attendees: Array<{ id: string; email: string; displayName: string | null; response: string }>
+}
+
+export function useDayAvailability(date: string, locationId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['availability', date, locationId ?? ''],
+    queryFn: () =>
+      api.get<DayAvailability>(
+        `/availability?date=${date}${locationId ? `&locationId=${locationId}` : ''}`,
+      ),
+    enabled: Boolean(date),
+    // Several people change this calendar at once, so it refreshes in the
+    // background while the tab is focused (docs/02 section 8).
+    staleTime: 20_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+  })
+}
+
+export function useFindRooms(
+  params: { startsAt: string; endsAt: string; locationId?: string; minCapacity?: number; features?: string[]; allLocations?: boolean } | null,
+) {
+  return useQuery({
+    queryKey: ['find-rooms', params],
+    queryFn: () => {
+      const p = new URLSearchParams({ startsAt: params!.startsAt, endsAt: params!.endsAt })
+      if (params!.locationId && !params!.allLocations) p.set('locationId', params!.locationId)
+      if (params!.allLocations) p.set('allLocations', 'true')
+      if (params!.minCapacity) p.set('minCapacity', String(params!.minCapacity))
+      if (params!.features?.length) p.set('features', params!.features.join(','))
+      return api.get<{ data: FreeRoom[] }>(`/availability/find?${p}`).then(r => r.data)
+    },
+    enabled: params !== null,
+  })
+}
+
+export function useBookings(filters: Record<string, string | undefined> = {}) {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) if (v) p.set(k, v)
+  const qs = p.toString()
+  return useQuery({
+    queryKey: ['bookings', filters],
+    queryFn: () => api.get<{ data: BookingDetail[] }>(`/bookings${qs ? `?${qs}` : ''}`).then(r => r.data),
+  })
+}
+
+export function useBooking(id: string | undefined) {
+  return useQuery({
+    queryKey: ['booking', id ?? ''],
+    queryFn: () => api.get<{ data: BookingDetail }>(`/bookings/${id}`).then(r => r.data),
+    enabled: Boolean(id),
+  })
+}
+
+/**
+ * Any booking change invalidates availability, so the grid updates itself
+ * rather than needing a manual refresh (docs/05 section 9).
+ */
+function useBookingMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['availability'] })
+      void qc.invalidateQueries({ queryKey: ['bookings'] })
+      void qc.invalidateQueries({ queryKey: ['booking'] })
+      void qc.invalidateQueries({ queryKey: ['find-rooms'] })
+    },
+  })
+}
+
+export const useCreateBooking = () =>
+  useBookingMutation((body: Record<string, unknown>) =>
+    api.post<{ data: BookingDetail }>('/bookings', body),
+  )
+
+export const useUpdateBooking = () =>
+  useBookingMutation(({ id, ...body }: { id: string } & Record<string, unknown>) =>
+    api.patch<{ data: BookingDetail }>(`/bookings/${id}`, body),
+  )
+
+export const useMoveBooking = () =>
+  useBookingMutation(({ id, ...body }: { id: string } & Record<string, unknown>) =>
+    api.post<{ data: BookingDetail }>(`/bookings/${id}/move`, body),
+  )
+
+export const useCancelBooking = () =>
+  useBookingMutation(({ id, reason }: { id: string; reason?: string }) =>
+    api.post<{ data: BookingDetail }>(`/bookings/${id}/cancel`, reason ? { reason } : {}),
+  )
+
+export const useEndBookingEarly = () =>
+  useBookingMutation((id: string) => api.post<{ data: BookingDetail }>(`/bookings/${id}/end-early`, {}))

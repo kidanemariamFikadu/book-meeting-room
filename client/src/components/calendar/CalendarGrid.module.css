@@ -1,0 +1,291 @@
+/*
+ * The calendar grid.
+ *
+ * Two columns: a sticky room label and a proportional time track. Bookings are
+ * absolutely positioned within the track as a percentage of the day, so the
+ * layout is resolution-independent and needs no per-slot DOM.
+ */
+
+.wrapper {
+  --room-col: 11rem;
+  --row-height: 46px;
+}
+
+.scroller {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: var(--room-col) minmax(42rem, 1fr);
+  position: relative;
+  min-width: max-content;
+}
+
+/* ---- Time axis ---- */
+.axisCorner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.zoneLabel {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text-subtle);
+}
+
+.axis {
+  position: relative;
+  height: 30px;
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.axisMark {
+  position: absolute;
+  top: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-subtle);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* ---- Room column ---- */
+.roomCell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  height: var(--row-height);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+}
+
+.roomSwatch {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 2px;
+}
+
+.roomName {
+  flex: 1;
+  font-size: var(--text-sm);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roomMeta {
+  font-size: var(--text-caption);
+  color: var(--color-text-subtle);
+}
+
+/* ---- Time track ---- */
+.track {
+  position: relative;
+  height: var(--row-height);
+  border-top: 1px solid var(--color-border);
+  /* Unbookable time is the default state; bookable windows are painted over
+     it, so a closed period reads as unavailable rather than simply empty. */
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-surface-sunken),
+    var(--color-surface-sunken) 5px,
+    transparent 5px,
+    transparent 10px
+  );
+  touch-action: pan-y;
+  cursor: cell;
+}
+
+.track:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.bookable {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-surface);
+}
+
+.slotLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ---- Blocks ---- */
+.booking,
+.closure {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  font: inherit;
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+.booking {
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-strong);
+  /* A left bar gives a second, non-colour cue to status (NFR-5). */
+  border-left: 3px solid var(--color-text-subtle);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.booking:hover {
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.bookingMine {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+.bookingPending {
+  background: var(--color-pending-subtle);
+  border-left-color: var(--color-pending);
+  border-style: dashed;
+}
+
+.closure {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-danger-subtle),
+    var(--color-danger-subtle) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+}
+
+.blockLabel {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--text-caption);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blockOrganizer {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+/* ---- Selection and cursor ---- */
+.selection {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px solid var(--color-accent);
+  pointer-events: none;
+}
+
+/* ---- Now line ---- */
+.nowLine {
+  position: absolute;
+  top: 30px;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-danger);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.nowDot {
+  position: absolute;
+  top: -4px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-danger);
+  border-radius: 50%;
+}
+
+/* ---- Legend ---- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-caption);
+  color: var(--color-text-subtle);
+}
+
+.legendItem {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.legendSwatch {
+  width: 14px;
+  height: 11px;
+  border-radius: 2px;
+  border: 1px solid var(--color-border-strong);
+}
+
+.legendBooked {
+  background: var(--color-surface-sunken);
+}
+
+.legendMine {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+}
+
+.legendPending {
+  background: var(--color-pending-subtle);
+  border-style: dashed;
+  border-color: var(--color-pending);
+}
+
+.legendClosed {
+  background: var(--color-danger-subtle);
+  border-color: var(--color-danger);
+}

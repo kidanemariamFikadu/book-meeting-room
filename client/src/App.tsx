@@ -12,8 +12,10 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { RedirectIfSignedIn, RequireAuth, RequireRole } from './auth/AuthProvider.js'
 import { AppShell, CentredLayout } from './components/layout/AppShell.js'
-import { AccountPage, FeaturesPage, HomePage } from './pages/AccountPage.js'
-import { NotFoundPage, PlaceholderPage } from './pages/PlaceholderPage.js'
+import { AccountPage, FeaturesPage } from './pages/AccountPage.js'
+import { BookingDetailPage, FindRoomPage, MyBookingsPage } from './pages/BookingsPage.js'
+import { CalendarPage } from './pages/CalendarPage.js'
+import { NotFoundPage } from './pages/PlaceholderPage.js'
 import {
   AcceptInvitePage,
   ForgotPasswordPage,
@@ -49,40 +51,14 @@ export function App() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<CalendarPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/find" element={<FindRoomPage />} />
+        <Route path="/bookings" element={<MyBookingsPage />} />
+        <Route path="/bookings/:id" element={<BookingDetailPage />} />
         <Route path="/account" element={<AccountPage />} />
 
-        {/* M3 */}
-        <Route
-          path="/calendar"
-          element={
-            <PlaceholderPage
-              title="Calendar"
-              milestone="M3"
-              description="The day grid showing every room against time, with click-and-drag to book."
-            />
-          }
-        />
-        <Route
-          path="/find"
-          element={
-            <PlaceholderPage
-              title="Find a room"
-              milestone="M3"
-              description="Search by date, time, capacity and equipment across one location or all of them."
-            />
-          }
-        />
-        <Route
-          path="/bookings"
-          element={
-            <PlaceholderPage
-              title="My bookings"
-              milestone="M3"
-              description="Your upcoming and past bookings, with edit and cancel."
-            />
-          }
-        />
+
 
         {/* Admin: rooms and equipment need only the ADMIN role, scoped per
             location inside each screen (BR-L1). */}
