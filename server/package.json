@@ -10,17 +10,23 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.2",
     "@prisma/client": "^6.2.1",
     "@roombook/shared": "*",
     "express": "^5.0.1",
+    "express-rate-limit": "^7.5.1",
+    "express-session": "^1.19.0",
     "helmet": "^8.0.0",
+    "nodemailer": "^6.10.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "supertest": "^7.0.0",
-    "@types/supertest": "^6.0.2"
+    "@types/express-session": "^1.19.0",
+    "@types/nodemailer": "^6.4.24",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0"
   }
 }

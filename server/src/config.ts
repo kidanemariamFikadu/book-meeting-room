@@ -33,7 +33,8 @@ const schema = z
     SESSION_SECRET: z.string().min(32, 'Use at least 32 characters of randomness'),
 
     TZ: z.string().default('UTC'),
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    // 'silent' is a real pino level and is what the test setup uses.
+    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
     TRUST_PROXY: int(0),
 
     MAIL_TRANSPORT: z.enum(['smtp', 'console']).default('console'),
