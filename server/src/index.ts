@@ -13,6 +13,10 @@ import { createApp } from './app.js'
 import { disconnect, prisma } from './db.js'
 import { startOutboxWorker, stopOutboxWorker } from './mail/OutboxWorker.js'
 import { logger } from './middleware/requestContext.js'
+import {
+  startApprovalExpiryWorker,
+  stopApprovalExpiryWorker,
+} from './workers/ApprovalExpiryWorker.js'
 import { startReminderWorker, stopReminderWorker } from './workers/ReminderWorker.js'
 
 async function main(): Promise<void> {
@@ -61,6 +65,7 @@ async function main(): Promise<void> {
   if (config.WORKERS_ENABLED) {
     startOutboxWorker()
     startReminderWorker()
+    startApprovalExpiryWorker()
   } else {
     logger.info('Workers disabled on this instance')
   }
@@ -84,6 +89,7 @@ async function main(): Promise<void> {
 
     stopOutboxWorker()
     stopReminderWorker()
+    stopApprovalExpiryWorker()
 
     server.close(async closeErr => {
       if (closeErr) logger.error({ err: closeErr }, 'Error closing HTTP server')
