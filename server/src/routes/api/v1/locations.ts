@@ -142,3 +142,55 @@ locationsRouter.put(
     }
   },
 )
+
+/**
+ * The resolved settings for this location, each labelled with where it came
+ * from, so an admin can see what is inherited and what is overridden.
+ */
+locationsRouter.get('/:id/settings/effective', async (req, res, next) => {
+  try {
+    res.json({ data: await locations.effectiveSettings(actorOf(req), String(req.params.id)) })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/** Candidate public holidays from the location country (D18). Read-only. */
+locationsRouter.get('/:id/holidays/suggestions', async (req, res, next) => {
+  try {
+    res.json(await locations.suggestHolidays(actorOf(req), String(req.params.id)))
+  } catch (err) {
+    next(err)
+  }
+})
+
+/** Adds holidays without disturbing those already entered by hand. */
+locationsRouter.post(
+  '/:id/holidays',
+  validate(z.object({ holidays: z.array(holidaySchema).max(400) }).strict()),
+  async (req, res, next) => {
+    try {
+      const { holidays } = req.body as { holidays: Array<{ date: string; name: string }> }
+      res.status(201).json({
+        data: await locations.addHolidays(actorOf(req), String(req.params.id), holidays, req.ip),
+      })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+locationsRouter.delete('/:id/holidays/:date', async (req, res, next) => {
+  try {
+    res.json(
+      await locations.removeHoliday(
+        actorOf(req),
+        String(req.params.id),
+        String(req.params.date),
+        req.ip,
+      ),
+    )
+  } catch (err) {
+    next(err)
+  }
+})

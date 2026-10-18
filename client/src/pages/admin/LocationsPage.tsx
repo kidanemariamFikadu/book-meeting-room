@@ -5,8 +5,9 @@
  */
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Clock, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CalendarOff, Clock, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -78,6 +79,7 @@ type FormValues = z.infer<typeof formSchema>
 
 export function LocationsPage() {
   const toast = useToast()
+  const navigate = useNavigate()
   const { data: locations, isPending, error, refetch } = useLocations({ includeInactive: true })
 
   const create = useCreateLocation()
@@ -166,6 +168,13 @@ export function LocationsPage() {
                     {l.isActive ? <Badge tone="success">Active</Badge> : <Badge tone="neutral">Inactive</Badge>}
                   </td>
                   <td className={s.actions}>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(`/admin/locations/${l.id}`)}
+                      aria-label={`Hours and holidays for ${l.name}`}
+                    >
+                      <CalendarOff size={13} aria-hidden /> Hours &amp; holidays
+                    </Button>
                     <Button size="sm" onClick={() => setEditing(l)} aria-label={`Edit ${l.name}`}>
                       <Pencil size={13} aria-hidden /> Edit
                     </Button>

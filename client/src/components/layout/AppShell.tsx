@@ -130,6 +130,8 @@ function MobileLink({ to, label, onClick }: { to: string; label: string; onClick
  */
 function LocationSwitcher() {
   const { locations, selectedId, select, isLoading } = useLocationScope()
+  const navigate = useNavigate()
+  const navigateToFind = () => navigate('/find?allLocations=true')
 
   if (isLoading || locations.length === 0) return null
 
@@ -163,9 +165,23 @@ function LocationSwitcher() {
                 {l.id === selectedId && <Check size={13} aria-hidden />}
               </span>
               <span className={s.menuItemName}>{l.name}</span>
+              {/* The live local time is why this control earns its place: it is
+                  how someone notices London is three hours behind before
+                  booking there (docs/14 section 7). */}
               <span className={s.menuItemMeta}>{l.currentLocalTime}</span>
             </DropdownMenu.Item>
           ))}
+
+          <DropdownMenu.Separator className={s.menuSeparator} />
+          {/*
+            Deliberately not an "all locations" option. A day grid spanning
+            three timezones has no coherent time axis, so the cross-location
+            view lives in the room finder instead (T-171).
+          */}
+          <DropdownMenu.Item className={s.menuItem} onSelect={() => navigateToFind()}>
+            <span className={s.menuCheck} />
+            <span className={s.menuItemName}>Search all locations…</span>
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

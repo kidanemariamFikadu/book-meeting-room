@@ -22,6 +22,7 @@ import {
   ResetPasswordPage,
 } from './pages/auth/AcceptInvitePage.js'
 import { LoginPage } from './pages/auth/LoginPage.js'
+import { LocationDetailPage } from './pages/admin/LocationDetailPage.js'
 import { LocationsPage } from './pages/admin/LocationsPage.js'
 import { RoomEditorPage } from './pages/admin/RoomEditorPage.js'
 import { RoomsPage } from './pages/admin/RoomsPage.js'
@@ -101,6 +102,14 @@ export function App() {
           element={
             <RequireRole minimum="OWNER">
               <LocationsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/locations/:id"
+          element={
+            <RequireRole minimum="OWNER">
+              <LocationDetailPage />
             </RequireRole>
           }
         />
