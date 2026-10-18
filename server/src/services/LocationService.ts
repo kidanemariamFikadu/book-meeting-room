@@ -18,6 +18,7 @@ import {
   StateConflictError,
   ValidationError,
 } from '../domain/errors.js'
+import { holidaysFor, supportsCountry } from '../domain/holidays.js'
 import * as audit from './AuditService.js'
 
 export interface LocationInput {
@@ -358,4 +359,174 @@ export async function setHolidays(
   })
 
   return prisma.locationHoliday.findMany({ where: { locationId }, orderBy: { date: 'asc' } })
+}
+
+// ---------------------------------------------------------------------------
+// Effective settings, and holiday seeding
+// ---------------------------------------------------------------------------
+
+/**
+ * One resolved setting, with its PROVENANCE.
+ *
+ * The source matters as much as the value. An admin looking at "90 days"
+ * needs to know whether this location chose it or is merely inheriting it,
+ * because changing the organization default will move the second but not the
+ * first. Not showing the source is the commonest cause of confusion in a
+ * three-level model (docs/14-multi-location.md section 4).
+ */
+export interface ResolvedSetting<T> {
+  value: T
+  source: 'room' | 'location' | 'organization' | 'default'
+  /** What it would fall back to if this level were cleared. */
+  inheritedValue: T | null
+}
+
+function resolve<T>(
+  levels: Array<{ source: ResolvedSetting<T>['source']; value: T | null | undefined }>,
+  fallback: T,
+): ResolvedSetting<T> {
+  // `null` means inherit; an explicit `0` is a real value and must not fall
+  // through, which is why this checks for null/undefined rather than falsiness.
+  let chosen: ResolvedSetting<T> | null = null
+  let inherited: T | null = null
+
+  for (const level of levels) {
+    if (level.value !== null && level.value !== undefined) {
+      if (!chosen) chosen = { value: level.value, source: level.source, inheritedValue: null }
+      else if (inherited === null) inherited = level.value
+    }
+  }
+
+  if (!chosen) return { value: fallback, source: 'default', inheritedValue: null }
+  return { ...chosen, inheritedValue: inherited ?? fallback }
+}
+
+export async function effectiveSettings(actor: Actor, locationId: string) {
+  const location = await prisma.location.findFirst({
+    where: { id: locationId, organizationId: actor.organizationId },
+  })
+  if (!location) throw new NotFoundError('That location')
+
+  const org = await prisma.orgSettings.findUnique({
+    where: { organizationId: actor.organizationId },
+  })
+
+  const levels = <T>(locationValue: T | null | undefined, orgValue: T | null | undefined) => [
+    { source: 'location' as const, value: locationValue },
+    { source: 'organization' as const, value: orgValue },
+  ]
+
+  return {
+    locationId: location.id,
+    locationName: location.name,
+    timezone: location.timezone,
+    country: location.country,
+    businessHoursStart: resolve(
+      levels(location.businessHoursStart, org?.businessHoursStart),
+      '08:00',
+    ),
+    businessHoursEnd: resolve(levels(location.businessHoursEnd, org?.businessHoursEnd), '18:00'),
+    businessDays: resolve(
+      levels(
+        location.businessDays.length > 0 ? location.businessDays : null,
+        org?.businessDays,
+      ),
+      [1, 2, 3, 4, 5],
+    ),
+    minBookingMinutes: resolve(levels(location.minBookingMinutes, org?.minBookingMinutes), 15),
+    maxBookingMinutes: resolve(levels(location.maxBookingMinutes, org?.maxBookingMinutes), 480),
+    maxAdvanceDays: resolve(levels(location.maxAdvanceDays, org?.maxAdvanceDays), 90),
+    minNoticeMinutes: resolve(levels(location.minNoticeMinutes, org?.minNoticeMinutes), 0),
+    reminderLeadMinutes: resolve(
+      levels(location.reminderLeadMinutes, org?.reminderLeadMinutes),
+      15,
+    ),
+  }
+}
+
+/**
+ * Suggests public holidays from the location country.
+ *
+ * Read-only: it returns candidates and the caller decides. Seeding directly
+ * would overwrite an owner edits, and the dataset is a convenience rather
+ * than an authority (D18).
+ */
+export async function suggestHolidays(actor: Actor, locationId: string, years = 2) {
+  const location = await prisma.location.findFirst({
+    where: { id: locationId, organizationId: actor.organizationId },
+    select: { country: true, holidays: { select: { date: true } } },
+  })
+  if (!location) throw new NotFoundError('That location')
+  if (!location.country) return { supported: false, country: null, holidays: [] }
+
+  const existing = new Set(location.holidays.map(h => h.date))
+  const suggestions = holidaysFor(location.country, new Date().getUTCFullYear(), years)
+
+  return {
+    supported: supportsCountry(location.country),
+    country: location.country,
+    // Dates already present are excluded, so accepting the suggestions is
+    // additive and never duplicates what the owner already entered.
+    holidays: suggestions.filter(h => !existing.has(h.date)),
+  }
+}
+
+/** Adds holidays without disturbing those already present. */
+export async function addHolidays(
+  actor: Actor,
+  locationId: string,
+  holidays: Array<{ date: string; name: string }>,
+  ip?: string,
+) {
+  const location = await prisma.location.findFirst({
+    where: { id: locationId, organizationId: actor.organizationId },
+    select: { id: true },
+  })
+  if (!location) throw new NotFoundError('That location')
+
+  if (!can(actor, 'location:update', { organizationId: actor.organizationId, locationId })) {
+    throw new AuthorizationError('Only an owner can change holidays')
+  }
+
+  await prisma.$transaction(async tx => {
+    await tx.locationHoliday.createMany({
+      data: holidays.map(h => ({ locationId, date: h.date, name: h.name.trim() })),
+      skipDuplicates: true,
+    })
+    await audit.record(
+      {
+        actor,
+        eventType: 'LOCATION_UPDATED',
+        entityType: 'location',
+        entityId: locationId,
+        locationId,
+        after: { holidaysAdded: holidays.length },
+        ip,
+      },
+      tx,
+    )
+  })
+
+  return prisma.locationHoliday.findMany({ where: { locationId }, orderBy: { date: 'asc' } })
+}
+
+export async function removeHoliday(actor: Actor, locationId: string, date: string, ip?: string) {
+  if (!can(actor, 'location:update', { organizationId: actor.organizationId, locationId })) {
+    throw new AuthorizationError('Only an owner can change holidays')
+  }
+  const deleted = await prisma.locationHoliday.deleteMany({ where: { locationId, date } })
+  if (deleted.count === 0) throw new NotFoundError('That holiday')
+
+  await audit.record({
+    actor,
+    eventType: 'LOCATION_UPDATED',
+    entityType: 'location',
+    entityId: locationId,
+    locationId,
+    before: { holiday: date },
+    after: { holiday: null },
+    ip,
+  })
+
+  return { deleted: true }
 }

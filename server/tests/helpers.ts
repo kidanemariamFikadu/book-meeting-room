@@ -155,6 +155,7 @@ export interface Client {
   get(path: string): request.Test
   post(path: string, body?: unknown): request.Test
   patch(path: string, body?: unknown): request.Test
+  put(path: string, body?: unknown): request.Test
   del(path: string, body?: unknown): request.Test
   cookie: string
 }
@@ -185,6 +186,7 @@ export async function signIn(email: string, password = TEST_PASSWORD): Promise<C
     get: path => withAuth(request(app).get(path)),
     post: (path, body) => withAuth(request(app).post(path).send(body as object)),
     patch: (path, body) => withAuth(request(app).patch(path).send(body as object)),
+    put: (path, body) => withAuth(request(app).put(path).send(body as object)),
     del: (path, body) => withAuth(request(app).delete(path).send(body as object)),
   }
 }

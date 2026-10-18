@@ -375,16 +375,34 @@ describe('locations', () => {
     expect(res.body.error.message).toMatch(/home location/i)
   })
 
-  it('replaces the holiday list wholesale', async () => {
+  /**
+   * PUT replaces the whole list; POST adds to it. Both exist because an owner
+   * tidying the list by hand wants replacement, while accepting the suggested
+   * public holidays must be additive and not wipe their own entries.
+   */
+  it('PUT replaces the holiday list, POST adds to it', async () => {
     const owner = await signIn('owner@test.local')
-    const res = await owner
-      .post(`/api/v1/locations/${fx.londonId}/holidays`)
-      .send({ holidays: [] })
-    // PUT is the documented verb; POST is not routed, so this proves the shape.
-    expect([404, 405]).toContain(res.status)
 
-    const put = await owner.patch(`/api/v1/locations/${fx.londonId}`, {})
-    expect(put.status).toBe(200)
+    const seeded = await owner.put(`/api/v1/locations/${fx.londonId}/holidays`, {
+      holidays: [
+        { date: '2026-12-25', name: 'Christmas Day' },
+        { date: '2026-12-26', name: 'Boxing Day' },
+      ],
+    })
+    expect(seeded.status).toBe(200)
+    expect(seeded.body.data).toHaveLength(2)
+
+    const added = await owner.post(`/api/v1/locations/${fx.londonId}/holidays`, {
+      holidays: [{ date: '2027-01-01', name: 'New Year' }],
+    })
+    expect(added.status).toBe(201)
+    expect(added.body.data).toHaveLength(3)
+
+    const replaced = await owner.put(`/api/v1/locations/${fx.londonId}/holidays`, {
+      holidays: [{ date: '2026-12-25', name: 'Christmas Day' }],
+    })
+    expect(replaced.status).toBe(200)
+    expect(replaced.body.data).toHaveLength(1)
   })
 })
 
