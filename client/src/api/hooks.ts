@@ -415,6 +415,10 @@ export interface BookingDetail {
   status: string
   isPrivate: boolean
   cancellationReason: string | null
+  /** Present when this booking is one occurrence of a recurring series. */
+  seriesId: string | null
+  isException: boolean
+  occurrenceStartLocal: string | null
   room: {
     id: string
     name: string
@@ -518,3 +522,114 @@ export const useCancelBooking = () =>
 
 export const useEndBookingEarly = () =>
   useBookingMutation((id: string) => api.post<{ data: BookingDetail }>(`/bookings/${id}/end-early`, {}))
+
+// ---------------------------------------------------------------------------
+// Recurring series (M4b)
+// ---------------------------------------------------------------------------
+
+export interface SeriesPreviewResponse {
+  description: string
+  totalOccurrences: number
+  available: number
+  firstOccurrence: string | null
+  lastOccurrence: string | null
+  conflicts: Array<{
+    occurrenceStartLocal: string
+    reason: string
+    detail?: string
+    conflictingTitle?: string
+  }>
+  truncated: boolean
+}
+
+export interface SeriesDetail {
+  id: string
+  title: string
+  description: string | null
+  rrule: string
+  dtstartLocal: string
+  durationMinutes: number
+  timezone: string
+  status: string
+  pattern: string
+  room: {
+    id: string
+    name: string
+    colour: string
+    location: { id: string; name: string; timezone: string }
+  }
+  organizer: { id: string; fullName: string; email: string }
+  occurrences: Array<{
+    id: string
+    title: string
+    startsAt: string
+    endsAt: string
+    status: string
+    isException: boolean
+    exceptionFields: string[]
+    occurrenceStartLocal: string | null
+    cancellationReason: string | null
+    room: { id: string; name: string }
+  }>
+  counts: { total: number; upcoming: number; cancelled: number; exceptions: number }
+}
+
+/** The dry run. Read-only, so it is safe to call as the form changes. */
+export function usePreviewSeries() {
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api.post<{ data: SeriesPreviewResponse }>('/series/preview', body).then(r => r.data),
+  })
+}
+
+export function useCreateSeries() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api
+        .post<{
+          data: { seriesId: string; created: number; skipped: unknown[]; description: string }
+        }>('/series', body)
+        .then(r => r.data),
+    onSuccess: () => {
+      // A series writes many booking rows, so everything that shows bookings
+      // has to refetch.
+      void qc.invalidateQueries({ queryKey: ['availability'] })
+      void qc.invalidateQueries({ queryKey: ['bookings'] })
+      void qc.invalidateQueries({ queryKey: ['find-rooms'] })
+    },
+  })
+}
+
+export function useSeries(id: string | undefined) {
+  return useQuery({
+    queryKey: ['series', id ?? ''],
+    queryFn: () => api.get<{ data: SeriesDetail }>(`/series/${id}`).then(r => r.data),
+    enabled: Boolean(id),
+  })
+}
+
+export function useCancelOccurrence() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      bookingId,
+      scope,
+      reason,
+    }: {
+      bookingId: string
+      scope: string
+      reason?: string
+    }) =>
+      api.post<{ data: { scope: string; affected: number } }>(
+        `/series/occurrences/${bookingId}/cancel`,
+        reason ? { scope, reason } : { scope },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['availability'] })
+      void qc.invalidateQueries({ queryKey: ['bookings'] })
+      void qc.invalidateQueries({ queryKey: ['booking'] })
+      void qc.invalidateQueries({ queryKey: ['series'] })
+    },
+  })
+}

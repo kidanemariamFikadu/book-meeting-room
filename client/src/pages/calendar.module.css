@@ -228,3 +228,20 @@
     min-width: 100%;
   }
 }
+
+.seriesLink {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: 2px var(--space-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+  background: var(--color-accent-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.seriesLink:hover {
+  text-decoration: underline;
+}

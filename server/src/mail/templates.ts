@@ -494,3 +494,135 @@ Object.assign(RENDERERS, {
   approval_expired: approvalExpired,
   approval_withdrawn: approvalWithdrawn,
 })
+
+// ---------------------------------------------------------------------------
+// Recurring series (docs/12-recurrence.md section 7)
+// ---------------------------------------------------------------------------
+
+/**
+ * One email for a whole series.
+ *
+ * Describes the PATTERN rather than listing the dates: a 52-week standup is
+ * "every Tuesday at 09:00, 52 meetings", not fifty-two lines. And it names any
+ * dates that could not be booked, because a series that silently missed three
+ * weeks is a meeting people miss.
+ */
+const seriesConfirmed: Renderer = p => {
+  const skipped = (p.skipped as Array<{ date: string; reason: string }> | undefined) ?? []
+
+  const skippedHtml = skipped.length
+    ? `<p style="${style.body}"><strong>${skipped.length} date${skipped.length === 1 ? '' : 's'} could not be booked and ${skipped.length === 1 ? 'has' : 'have'} been skipped:</strong></p>` +
+      `<blockquote style="${style.quote}">${skipped
+        .map(s => `${esc(s.date)} — ${esc(s.reason)}`)
+        .join('<br>')}</blockquote>`
+    : ''
+
+  return {
+    subject: `Confirmed: ${p.title} - ${p.pattern}`,
+    html: layout(
+      `<h1 style="${style.heading}">Your recurring booking is confirmed.</h1>` +
+        table(
+          row('Meeting', String(p.title ?? '')) +
+            row('Repeats', String(p.pattern ?? '')) +
+            row('Room', [p.room, p.location].filter(Boolean).join(', ')) +
+            row('From', when(p.firstOccurrence as string, p.timeZone)) +
+            row('Until', when(p.lastOccurrence as string, p.timeZone)) +
+            row('Meetings', `${p.occurrenceCount}`),
+        ) +
+        skippedHtml +
+        button(p.url, 'View series') +
+        `<p style="${style.muted}">A calendar invitation is attached. It covers the whole series, so your calendar shows one repeating entry.</p>`,
+    ),
+    text: [
+      'Your recurring booking is confirmed.',
+      '',
+      `Meeting:  ${p.title}`,
+      `Repeats:  ${p.pattern}`,
+      `Room:     ${[p.room, p.location].filter(Boolean).join(', ')}`,
+      `From:     ${when(p.firstOccurrence as string, p.timeZone)}`,
+      `Until:    ${when(p.lastOccurrence as string, p.timeZone)}`,
+      `Meetings: ${p.occurrenceCount}`,
+      '',
+      skipped.length
+        ? `${skipped.length} date(s) could not be booked and have been skipped:\n` +
+          skipped.map(s => `  ${s.date} - ${s.reason}`).join('\n')
+        : '',
+      '',
+      p.url ? `View it: ${p.url}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  }
+}
+
+const seriesCancelled: Renderer = p => {
+  const headline = p.cancelledBy
+    ? `${p.cancelledBy} has cancelled your recurring meeting.`
+    : 'Your recurring meeting has been cancelled.'
+
+  return {
+    subject: `Cancelled: all remaining ${p.title} meetings`,
+    html: layout(
+      `<h1 style="${style.heading}">${esc(headline)}</h1>` +
+        `<p style="${style.body}">All <strong>${esc(p.occurrenceCount)}</strong> remaining meetings have been cancelled. Any that already took place are unchanged.</p>` +
+        table(
+          row('Meeting', String(p.title ?? '')) + row('Room', String(p.room ?? '')),
+        ) +
+        quote(p.reason, p.cancelledBy ? String(p.cancelledBy) : null) +
+        button(`${config.APP_URL}/find`, 'Find another room'),
+    ),
+    text: [
+      headline,
+      '',
+      `All ${p.occurrenceCount} remaining meetings have been cancelled.`,
+      'Any that already took place are unchanged.',
+      '',
+      `Meeting: ${p.title}`,
+      `Room:    ${p.room}`,
+      '',
+      p.reason ? `Reason:\n  "${p.reason}"` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  }
+}
+
+/**
+ * One date only.
+ *
+ * The closing line is the point of this template: without it every recipient
+ * has to open the app to find out whether their standup still exists.
+ */
+const occurrenceCancelled: Renderer = p => {
+  const headline = p.cancelledBy
+    ? `${p.cancelledBy} has cancelled one meeting in your recurring series.`
+    : 'One meeting in your recurring series has been cancelled.'
+
+  return {
+    subject: `Cancelled: ${p.title} on one date only`,
+    html: layout(
+      `<h1 style="${style.heading}">${esc(headline)}</h1>` +
+        detailsHtml(p) +
+        quote(p.reason, p.cancelledBy ? String(p.cancelledBy) : null) +
+        `<p style="${style.body}"><strong>Only this date has changed.</strong> The rest of your series is unaffected and continues as normal.</p>` +
+        button(`${config.APP_URL}/bookings`, 'View your bookings'),
+    ),
+    text: [
+      headline,
+      '',
+      detailsText(p),
+      '',
+      p.reason ? `Reason:\n  "${p.reason}"` : '',
+      '',
+      'Only this date has changed. The rest of your series is unaffected.',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  }
+}
+
+Object.assign(RENDERERS, {
+  series_confirmed: seriesConfirmed,
+  series_cancelled: seriesCancelled,
+  occurrence_cancelled: occurrenceCancelled,
+})

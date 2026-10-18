@@ -11,9 +11,10 @@ export declare function MoveDialog({ booking, onClose, onMoved, }: {
     onClose: () => void;
     onMoved: () => void;
 }): import("react").JSX.Element;
-export declare function CancelDialog({ booking, isOwn, onClose, onCancelled, }: {
+export declare function CancelDialog({ booking, isOwn, isAdmin, onClose, onCancelled, }: {
     booking: BookingDetail;
     isOwn: boolean;
+    isAdmin?: boolean;
     onClose: () => void;
     onCancelled: () => void;
 }): import("react").JSX.Element;

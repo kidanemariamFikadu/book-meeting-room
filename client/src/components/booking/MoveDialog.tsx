@@ -14,11 +14,13 @@ import { timeInZone } from '@roombook/shared'
 import { ApiError } from '../../api/client.js'
 import {
   useCancelBooking,
+  useCancelOccurrence,
   useMoveBooking,
   useRooms,
   type BookingDetail,
 } from '../../api/hooks.js'
 import { Button, ErrorNotice, Field, Input, Modal, Select, Textarea, useToast } from '../ui/index.js'
+import { ScopeChooserDialog, type EditScopeChoice } from './RecurrenceEditor.js'
 import s from './booking.module.css'
 
 const MIN_REASON = 3
@@ -175,18 +177,42 @@ export function MoveDialog({
 export function CancelDialog({
   booking,
   isOwn,
+  isAdmin = false,
   onClose,
   onCancelled,
 }: {
   booking: BookingDetail
   isOwn: boolean
+  isAdmin?: boolean
   onClose: () => void
   onCancelled: () => void
 }) {
   const toast = useToast()
   const cancel = useCancelBooking()
+  const cancelOccurrence = useCancelOccurrence()
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  /**
+   * An occurrence of a series needs a scope before anything happens: guessing
+   * between "just this Tuesday" and "the whole standup forever" is not a guess
+   * worth making. The default differs by role, because an admin reclaiming a
+   * room almost always means today (D16).
+   */
+  const [scope, setScope] = useState<EditScopeChoice | null>(null)
+
+  if (booking.seriesId && scope === null) {
+    return (
+      <ScopeChooserDialog
+        title={booking.title}
+        action="Cancel"
+        defaultScope={isAdmin && !isOwn ? 'THIS_OCCURRENCE' : 'ENTIRE_SERIES'}
+        loading={false}
+        onClose={onClose}
+        onChoose={setScope}
+      />
+    )
+  }
 
   // An organizer cancelling their own booking owes nobody an explanation; an
   // admin cancelling someone else's does (BR-M5).
@@ -205,16 +231,32 @@ export function CancelDialog({
           <Button onClick={onClose}>Keep booking</Button>
           <Button
             variant="danger"
-            loading={cancel.isPending}
+            loading={cancel.isPending || cancelOccurrence.isPending}
             disabled={!canSubmit}
             onClick={async () => {
               setError(null)
               try {
-                await cancel.mutateAsync({
-                  id: booking.id,
-                  reason: reason.trim() || undefined,
-                })
-                toast.show('Booking cancelled — the room is free again')
+                if (booking.seriesId && scope) {
+                  const result = await cancelOccurrence.mutateAsync({
+                    bookingId: booking.id,
+                    scope,
+                    reason: reason.trim() || undefined,
+                  })
+                  // The count matters: "1 cancelled" and "34 cancelled" are
+                  // very different outcomes to confirm back.
+                  const affected = result.data.affected
+                  toast.show(
+                    scope === 'THIS_OCCURRENCE'
+                      ? 'That date cancelled — the rest of the series is unchanged'
+                      : `${affected} meeting${affected === 1 ? '' : 's'} cancelled`,
+                  )
+                } else {
+                  await cancel.mutateAsync({
+                    id: booking.id,
+                    reason: reason.trim() || undefined,
+                  })
+                  toast.show('Booking cancelled — the room is free again')
+                }
                 onCancelled()
               } catch (err) {
                 setError(err instanceof Error ? err.message : 'Could not cancel')

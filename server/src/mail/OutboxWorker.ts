@@ -100,17 +100,32 @@ function attachmentFor(
   icsMethod: string | null,
   payload: BookingPayload,
   sequence: number,
+  series?: { id: string; rrule: string } | null,
 ): Array<{ filename: string; content: string; contentType: string }> {
   // A reminder deliberately has none: the meeting is already in the calendar.
   if (!icsMethod || template === 'booking_reminder') return []
-  if (!payload.startsAt || !payload.endsAt || !payload.icsUid) return []
+
+  /*
+   * For a series, the UID belongs to the SERIES and the event carries an
+   * RRULE, so a client shows one repeating entry rather than N unrelated
+   * meetings. The per-row uid is used only for a standalone booking.
+   */
+  const uid = series ? `${series.id}@roombook` : payload.icsUid
+  const start = series ? (payload.firstOccurrence ?? payload.startsAt) : payload.startsAt
+
+  if (!start || !uid) return []
+  const end =
+    payload.endsAt ??
+    (payload.startsAt && payload.endsAt ? payload.endsAt : null) ??
+    new Date(new Date(String(start)).getTime() + 30 * 60_000).toISOString()
 
   const content = buildIcs({
-    uid: String(payload.icsUid),
+    uid: String(uid),
     sequence,
+    ...(series ? { rrule: series.rrule } : {}),
     method: icsMethod as IcsMethod,
-    start: new Date(payload.startsAt),
-    end: new Date(payload.endsAt),
+    start: new Date(String(start)),
+    end: new Date(String(end)),
     title: String(payload.title ?? 'Meeting'),
     description: payload.description ? String(payload.description) : null,
     location: [payload.room, payload.location, payload.address].filter(Boolean).join(', '),
@@ -147,6 +162,14 @@ async function sendOne(id: string): Promise<'sent' | 'failed' | 'requeued'> {
   })
   if (!row) return 'failed'
 
+  // A series email carries the RRULE, so the recipient's calendar shows one
+  // repeating entry instead of N separate meetings.
+  const series = row.seriesId
+    ? await prisma.bookingSeries.findUnique({
+        where: { id: row.seriesId },
+        select: { id: true, rrule: true },
+      })
+    : null
   const payload: BookingPayload = {
     ...(row.payload as BookingPayload),
     icsUid: row.booking?.icsUid,
@@ -168,6 +191,7 @@ async function sendOne(id: string): Promise<'sent' | 'failed' | 'requeued'> {
         row.icsMethod,
         payload,
         row.booking?.icsSequence ?? 0,
+        series,
       ),
       // Replying should reach a person, not a monitored-by-nobody address.
       replyTo: row.booking?.organizer.email,
