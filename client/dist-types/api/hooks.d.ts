@@ -198,5 +198,135 @@ export declare function useChangePassword(): import("@tanstack/react-query").Use
     newPassword: string;
 }, unknown>;
 export declare function useUpdateProfile(): import("@tanstack/react-query").UseMutationResult<Envelope<UserRow>, Error, Record<string, unknown>, unknown>;
+export interface BusySlot {
+    bookingId: string;
+    startsAt: string;
+    endsAt: string;
+    title: string;
+    organizer: {
+        id: string;
+        fullName: string;
+    } | null;
+    status: string;
+    isPrivate: boolean;
+    isMine: boolean;
+    canAdminister: boolean;
+}
+export interface RoomAvailability {
+    roomId: string;
+    name: string;
+    capacity: number;
+    floor: string | null;
+    colour: string;
+    features: Array<{
+        id: string;
+        name: string;
+    }>;
+    bookableWindows: Array<{
+        startsAt: string;
+        endsAt: string;
+    }>;
+    busy: BusySlot[];
+    closures: Array<{
+        id: string;
+        startsAt: string;
+        endsAt: string;
+        reason: string;
+    }>;
+    freeSlots: Array<{
+        startsAt: string;
+        endsAt: string;
+    }>;
+}
+export interface DayAvailability {
+    date: string;
+    timezone: string;
+    locationId: string;
+    locationName: string;
+    rooms: RoomAvailability[];
+}
+export interface FreeRoom {
+    roomId: string;
+    name: string;
+    capacity: number;
+    floor: string | null;
+    colour: string;
+    locationId: string;
+    locationName: string;
+    timezone: string;
+    features: Array<{
+        id: string;
+        name: string;
+    }>;
+    requiresApproval: boolean;
+}
+export interface BookingDetail {
+    id: string;
+    title: string;
+    description: string | null;
+    startsAt: string;
+    endsAt: string;
+    status: string;
+    isPrivate: boolean;
+    cancellationReason: string | null;
+    room: {
+        id: string;
+        name: string;
+        capacity: number;
+        floor: string | null;
+        colour: string;
+        requiresApproval: boolean;
+        location: {
+            id: string;
+            name: string;
+            timezone: string;
+            address: string | null;
+        };
+    };
+    organizer: {
+        id: string;
+        fullName: string;
+        email: string;
+    };
+    attendees: Array<{
+        id: string;
+        email: string;
+        displayName: string | null;
+        response: string;
+    }>;
+}
+export declare function useDayAvailability(date: string, locationId: string | null | undefined): import("@tanstack/react-query").UseQueryResult<DayAvailability, Error>;
+export declare function useFindRooms(params: {
+    startsAt: string;
+    endsAt: string;
+    locationId?: string;
+    minCapacity?: number;
+    features?: string[];
+    allLocations?: boolean;
+} | null): import("@tanstack/react-query").UseQueryResult<FreeRoom[], Error>;
+export declare function useBookings(filters?: Record<string, string | undefined>): import("@tanstack/react-query").UseQueryResult<BookingDetail[], Error>;
+export declare function useBooking(id: string | undefined): import("@tanstack/react-query").UseQueryResult<BookingDetail, Error>;
+export declare const useCreateBooking: () => import("@tanstack/react-query").UseMutationResult<{
+    data: BookingDetail;
+}, Error, Record<string, unknown>, unknown>;
+export declare const useUpdateBooking: () => import("@tanstack/react-query").UseMutationResult<{
+    data: BookingDetail;
+}, Error, {
+    id: string;
+} & Record<string, unknown>, unknown>;
+export declare const useMoveBooking: () => import("@tanstack/react-query").UseMutationResult<{
+    data: BookingDetail;
+}, Error, {
+    id: string;
+} & Record<string, unknown>, unknown>;
+export declare const useCancelBooking: () => import("@tanstack/react-query").UseMutationResult<{
+    data: BookingDetail;
+}, Error, {
+    id: string;
+    reason?: string;
+}, unknown>;
+export declare const useEndBookingEarly: () => import("@tanstack/react-query").UseMutationResult<{
+    data: BookingDetail;
+}, Error, string, unknown>;
 export {};
 //# sourceMappingURL=hooks.d.ts.map
