@@ -159,6 +159,10 @@ export function CalendarPage() {
             setDraft(null)
             navigate(`/bookings/${id}`)
           }}
+          onSeriesCreated={seriesId => {
+            setDraft(null)
+            navigate(`/series/${seriesId}`)
+          }}
         />
       )}
     </>

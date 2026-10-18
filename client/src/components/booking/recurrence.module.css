@@ -1,0 +1,199 @@
+.wrap {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4) 0 0 var(--space-5);
+  border-left: 2px solid var(--color-border);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.label {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.interval {
+  width: 4.5rem;
+  flex: none;
+}
+
+.freq {
+  width: 8rem;
+  flex: none;
+}
+
+.endDate {
+  width: 10rem;
+  flex: none;
+}
+
+/* ---- Weekday chips ---- */
+.dayChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.dayChip {
+  min-width: 3rem;
+  padding: var(--space-2);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.dayChipOn {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* ---- Ending ---- */
+.ending {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.radio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.radio input[type='radio'] {
+  accent-color: var(--color-accent);
+}
+
+/* ---- Summary ---- */
+.summary {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  border-radius: var(--radius-md);
+}
+
+.openEnded {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-text-subtle);
+}
+
+/* ---- Preview ---- */
+.previewPattern {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.previewClean {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-success);
+}
+
+.previewWarn {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-warning);
+}
+
+.conflictList {
+  display: grid;
+  gap: var(--space-1);
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-3);
+  list-style: none;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+}
+
+.conflictItem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.conflictDate {
+  min-width: 6.5rem;
+  font-weight: 550;
+}
+
+.conflictReason {
+  color: var(--color-text-muted);
+}
+
+/* ---- Scope chooser ---- */
+.scopeOptions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.scopeOption {
+  display: flex;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.scopeOption:hover {
+  border-color: var(--color-border-strong);
+}
+
+/* Selected state carries a border and a background, not colour alone. */
+.scopeOptionOn {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+}
+
+.scopeOption input[type='radio'] {
+  margin-top: 3px;
+  accent-color: var(--color-accent);
+}
+
+.scopeDetail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+}

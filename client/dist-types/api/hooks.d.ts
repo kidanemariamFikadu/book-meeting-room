@@ -269,6 +269,10 @@ export interface BookingDetail {
     status: string;
     isPrivate: boolean;
     cancellationReason: string | null;
+    /** Present when this booking is one occurrence of a recurring series. */
+    seriesId: string | null;
+    isException: boolean;
+    occurrenceStartLocal: string | null;
     room: {
         id: string;
         name: string;
@@ -328,5 +332,85 @@ export declare const useCancelBooking: () => import("@tanstack/react-query").Use
 export declare const useEndBookingEarly: () => import("@tanstack/react-query").UseMutationResult<{
     data: BookingDetail;
 }, Error, string, unknown>;
+export interface SeriesPreviewResponse {
+    description: string;
+    totalOccurrences: number;
+    available: number;
+    firstOccurrence: string | null;
+    lastOccurrence: string | null;
+    conflicts: Array<{
+        occurrenceStartLocal: string;
+        reason: string;
+        detail?: string;
+        conflictingTitle?: string;
+    }>;
+    truncated: boolean;
+}
+export interface SeriesDetail {
+    id: string;
+    title: string;
+    description: string | null;
+    rrule: string;
+    dtstartLocal: string;
+    durationMinutes: number;
+    timezone: string;
+    status: string;
+    pattern: string;
+    room: {
+        id: string;
+        name: string;
+        colour: string;
+        location: {
+            id: string;
+            name: string;
+            timezone: string;
+        };
+    };
+    organizer: {
+        id: string;
+        fullName: string;
+        email: string;
+    };
+    occurrences: Array<{
+        id: string;
+        title: string;
+        startsAt: string;
+        endsAt: string;
+        status: string;
+        isException: boolean;
+        exceptionFields: string[];
+        occurrenceStartLocal: string | null;
+        cancellationReason: string | null;
+        room: {
+            id: string;
+            name: string;
+        };
+    }>;
+    counts: {
+        total: number;
+        upcoming: number;
+        cancelled: number;
+        exceptions: number;
+    };
+}
+/** The dry run. Read-only, so it is safe to call as the form changes. */
+export declare function usePreviewSeries(): import("@tanstack/react-query").UseMutationResult<SeriesPreviewResponse, Error, Record<string, unknown>, unknown>;
+export declare function useCreateSeries(): import("@tanstack/react-query").UseMutationResult<{
+    seriesId: string;
+    created: number;
+    skipped: unknown[];
+    description: string;
+}, Error, Record<string, unknown>, unknown>;
+export declare function useSeries(id: string | undefined): import("@tanstack/react-query").UseQueryResult<SeriesDetail, Error>;
+export declare function useCancelOccurrence(): import("@tanstack/react-query").UseMutationResult<{
+    data: {
+        scope: string;
+        affected: number;
+    };
+}, Error, {
+    bookingId: string;
+    scope: string;
+    reason?: string;
+}, unknown>;
 export {};
 //# sourceMappingURL=hooks.d.ts.map

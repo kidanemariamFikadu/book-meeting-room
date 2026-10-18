@@ -2,7 +2,7 @@
  * My bookings (S-09), booking detail (S-08) and the room finder (S-06).
  */
 
-import { ArrowLeft, Clock, MapPin, Search, Users } from 'lucide-react'
+import { ArrowLeft, Clock, MapPin, Repeat, Search, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -226,7 +226,22 @@ export function BookingDetailPage() {
           <StatusBadge status={booking.status} />
           {hasEnded && <Badge tone="neutral">Finished</Badge>}
           {inProgress && <Badge tone="warning">In progress</Badge>}
+          {booking.seriesId && (
+            <Link to={`/series/${booking.seriesId}`} className={s.seriesLink}>
+              <Repeat size={12} aria-hidden />
+              {booking.isException ? 'Changed occurrence of a series' : 'Part of a series'}
+            </Link>
+          )}
         </div>
+
+        {/* An occurrence that diverges from its rule is worth saying out loud:
+            otherwise the detail page looks inconsistent with the series. */}
+        {booking.isException && (
+          <p className={s.footnote}>
+            This date differs from the rest of the series. A later change to the whole series will
+            leave it as it is.
+          </p>
+        )}
 
         <dl className={s.detailGrid}>
           <div>
@@ -299,6 +314,7 @@ export function BookingDetailPage() {
         <CancelDialog
           booking={booking}
           isOwn={isOrganizer}
+          isAdmin={isAdmin}
           onClose={() => setCancelling(false)}
           onCancelled={() => setCancelling(false)}
         />

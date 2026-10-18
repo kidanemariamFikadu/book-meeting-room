@@ -15,6 +15,7 @@ import { sessionMiddleware } from '../../../middleware/session.js'
 import { adminRouter, devRouter } from './admin.js'
 import { approvalsRouter } from './approvals.js'
 import { authRouter } from './auth.js'
+import { seriesRouter } from './series.js'
 import { availabilityRouter, bookingsRouter } from './bookings.js'
 import { locationsRouter } from './locations.js'
 import { roomsRouter } from './rooms.js'
@@ -57,6 +58,7 @@ apiRouter.use('/locations', locationsRouter)
 apiRouter.use('/rooms', roomsRouter)
 apiRouter.use('/availability', availabilityRouter)
 apiRouter.use('/bookings', bookingsRouter)
+apiRouter.use('/series', seriesRouter)
 apiRouter.use('/approvals', approvalsRouter)
 apiRouter.use('/admin', adminRouter)
 apiRouter.use('/dev', devRouter)

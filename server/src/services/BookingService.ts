@@ -821,6 +821,18 @@ export async function move(
   try {
     return await prisma.$transaction(
       async tx => {
+        /*
+         * When the booking belongs to a series, moving it makes this occurrence
+         * an EXCEPTION. `occurrenceStartLocal` is deliberately not touched — it
+         * is the RECURRENCE-ID that ties the row back to its slot in the rule,
+         * and `exceptionFields` records what diverged so a later series-wide
+         * edit knows not to overwrite it (docs/12 section 5).
+         */
+        const diverged: string[] = []
+        if (targetRoomId !== booking.roomId) diverged.push('roomId')
+        if (start.getTime() !== booking.startsAt.getTime()) diverged.push('startsAt')
+        if (end.getTime() !== booking.endsAt.getTime()) diverged.push('endsAt')
+
         const row = await tx.booking.update({
           where: { id },
           data: {
@@ -829,6 +841,14 @@ export async function move(
             endsAt: end,
             // Calendar clients ignore an update whose sequence has not advanced.
             icsSequence: { increment: 1 },
+            ...(booking.seriesId
+              ? {
+                  isException: true,
+                  exceptionFields: {
+                    set: [...new Set([...booking.exceptionFields, ...diverged])],
+                  },
+                }
+              : {}),
           },
           include: bookingInclude,
         })

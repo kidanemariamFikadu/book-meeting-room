@@ -15,6 +15,7 @@ import { AppShell, CentredLayout } from './components/layout/AppShell.js'
 import { AccountPage, FeaturesPage } from './pages/AccountPage.js'
 import { BookingDetailPage, FindRoomPage, MyBookingsPage } from './pages/BookingsPage.js'
 import { CalendarPage } from './pages/CalendarPage.js'
+import { SeriesPage } from './pages/SeriesPage.js'
 import { NotFoundPage } from './pages/PlaceholderPage.js'
 import {
   AcceptInvitePage,
@@ -59,6 +60,7 @@ export function App() {
         <Route path="/find" element={<FindRoomPage />} />
         <Route path="/bookings" element={<MyBookingsPage />} />
         <Route path="/bookings/:id" element={<BookingDetailPage />} />
+        <Route path="/series/:id" element={<SeriesPage />} />
         <Route path="/account" element={<AccountPage />} />
 
 

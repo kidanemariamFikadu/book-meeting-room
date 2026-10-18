@@ -14,10 +14,11 @@ export interface DraftBooking {
     timezone: string;
     requiresApproval?: boolean;
 }
-export declare function BookingDialog({ draft, onClose, onBooked, rooms, }: {
+export declare function BookingDialog({ draft, onClose, onBooked, onSeriesCreated, rooms, }: {
     draft: DraftBooking;
     onClose: () => void;
     onBooked: (id: string) => void;
+    onSeriesCreated?: (seriesId: string) => void;
     rooms: Array<{
         roomId: string;
         name: string;

@@ -13,7 +13,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { formatInZone, timeInZone } from '@roombook/shared'
 
 import { ApiError } from '../../api/client.js'
-import { useCreateBooking, useUsers, type FreeRoom } from '../../api/hooks.js'
+import {
+  useCreateBooking,
+  useCreateSeries,
+  usePreviewSeries,
+  useUsers,
+  type FreeRoom,
+} from '../../api/hooks.js'
 import {
   Badge,
   Button,
@@ -26,6 +32,13 @@ import {
   Textarea,
   useToast,
 } from '../ui/index.js'
+import {
+  RecurrenceEditor,
+  SeriesPreviewDialog,
+  defaultRule,
+  type RecurrenceValue,
+  type SeriesPreviewData,
+} from './RecurrenceEditor.js'
 import s from './booking.module.css'
 
 export interface DraftBooking {
@@ -54,11 +67,13 @@ export function BookingDialog({
   draft,
   onClose,
   onBooked,
+  onSeriesCreated,
   rooms,
 }: {
   draft: DraftBooking
   onClose: () => void
   onBooked: (id: string) => void
+  onSeriesCreated?: (seriesId: string) => void
   rooms: Array<{ roomId: string; name: string }>
 }) {
   const toast = useToast()
@@ -73,6 +88,15 @@ export function BookingDialog({
   const [showMore, setShowMore] = useState(false)
   const [start, setStart] = useState(draft.start)
   const [end, setEnd] = useState(draft.end)
+
+  const [recurrence, setRecurrence] = useState<RecurrenceValue>(() => ({
+    enabled: false,
+    rule: defaultRule(formatInZone(draft.start, draft.timezone).slice(0, 10)),
+  }))
+  const [seriesPreview, setSeriesPreview] = useState<SeriesPreviewData | null>(null)
+
+  const previewSeries = usePreviewSeries()
+  const createSeries = useCreateSeries()
 
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null)
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null)
@@ -98,12 +122,38 @@ export function BookingDialog({
     [start, end, draft.timezone],
   )
 
+  const startLocal = formatInZone(start, draft.timezone)
+
+  /** Everything the series endpoints need, derived once. */
+  const seriesBody = () => ({
+    roomId,
+    startsAtLocal: startLocal,
+    durationMinutes,
+    timezone: draft.timezone,
+    recurrence: recurrence.rule,
+  })
+
   async function submit() {
     setError(null)
     setFieldError(null)
 
     if (title.trim().length === 0) {
       setFieldError('Please give the meeting a title')
+      return
+    }
+
+    /*
+     * A recurring booking is previewed before anything is written, because
+     * some dates in a long series will clash and the user must see which.
+     * Creating first and reporting afterwards is how a series quietly misses
+     * three weeks (docs/12 section 4).
+     */
+    if (recurrence.enabled) {
+      try {
+        setSeriesPreview(await previewSeries.mutateAsync(seriesBody()))
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not check those dates')
+      }
       return
     }
 
@@ -157,8 +207,16 @@ export function BookingDialog({
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" loading={create.isPending} onClick={() => void submit()}>
-            {draft.requiresApproval ? 'Request room' : 'Book room'}
+          <Button
+            variant="primary"
+            loading={create.isPending || previewSeries.isPending}
+            onClick={() => void submit()}
+          >
+            {recurrence.enabled
+              ? 'Check the dates'
+              : draft.requiresApproval
+                ? 'Request room'
+                : 'Book room'}
           </Button>
         </>
       }
@@ -271,6 +329,13 @@ export function BookingDialog({
         </div>
       )}
 
+      <RecurrenceEditor
+        value={recurrence}
+        startLocalDate={startLocal.slice(0, 10)}
+        startLocalTime={startLocal.slice(11, 16)}
+        onChange={setRecurrence}
+      />
+
       <button type="button" className={s.disclosure} onClick={() => setShowMore(v => !v)}>
         {showMore ? 'Hide' : 'Add'} attendees, description and options
       </button>
@@ -313,6 +378,43 @@ export function BookingDialog({
             onChange={e => setIsPrivate(e.target.checked)}
           />
         </div>
+      )}
+
+      {seriesPreview && (
+        <SeriesPreviewDialog
+          preview={seriesPreview}
+          roomName={roomName}
+          loading={createSeries.isPending}
+          onClose={() => setSeriesPreview(null)}
+          onConfirm={async strategy => {
+            if (strategy === 'FAIL') {
+              // "Change the dates" takes them back to the form rather than
+              // attempting a create that is certain to be refused.
+              setSeriesPreview(null)
+              return
+            }
+            try {
+              const result = await createSeries.mutateAsync({
+                ...seriesBody(),
+                title: title.trim(),
+                description: description.trim() || undefined,
+                isPrivate,
+                conflictStrategy: 'SKIP',
+              })
+              toast.show(
+                result.skipped.length > 0
+                  ? `${result.created} meetings booked, ${result.skipped.length} dates skipped`
+                  : `${result.created} meetings booked`,
+              )
+              setSeriesPreview(null)
+              onSeriesCreated?.(result.seriesId)
+              onClose()
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Could not create the series')
+              setSeriesPreview(null)
+            }
+          }}
+        />
       )}
     </Modal>
   )

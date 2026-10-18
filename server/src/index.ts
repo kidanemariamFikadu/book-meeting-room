@@ -17,6 +17,7 @@ import {
   startApprovalExpiryWorker,
   stopApprovalExpiryWorker,
 } from './workers/ApprovalExpiryWorker.js'
+import { startHorizonWorker, stopHorizonWorker } from './workers/HorizonWorker.js'
 import { startReminderWorker, stopReminderWorker } from './workers/ReminderWorker.js'
 
 async function main(): Promise<void> {
@@ -66,6 +67,7 @@ async function main(): Promise<void> {
     startOutboxWorker()
     startReminderWorker()
     startApprovalExpiryWorker()
+    startHorizonWorker()
   } else {
     logger.info('Workers disabled on this instance')
   }
@@ -90,6 +92,7 @@ async function main(): Promise<void> {
     stopOutboxWorker()
     stopReminderWorker()
     stopApprovalExpiryWorker()
+    stopHorizonWorker()
 
     server.close(async closeErr => {
       if (closeErr) logger.error({ err: closeErr }, 'Error closing HTTP server')
