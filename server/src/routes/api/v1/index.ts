@@ -12,6 +12,7 @@ import { loadActor } from '../../../middleware/auth.js'
 import { csrfProtection } from '../../../middleware/csrf.js'
 import { apiLimiter } from '../../../middleware/rateLimit.js'
 import { sessionMiddleware } from '../../../middleware/session.js'
+import { adminRouter, devRouter } from './admin.js'
 import { authRouter } from './auth.js'
 import { availabilityRouter, bookingsRouter } from './bookings.js'
 import { locationsRouter } from './locations.js'
@@ -31,7 +32,7 @@ apiRouter.get('/', (_req, res) => {
   res.json({
     name: 'RoomBook API',
     version: 'v1',
-    milestone: 'M3 - booking engine',
+    milestone: 'M4 - notifications',
     docs: 'docs/05-api-spec.md',
     calendarSync: config.CALENDAR_SYNC_ENABLED ? 'enabled' : 'disabled',
     routers: {
@@ -55,6 +56,8 @@ apiRouter.use('/locations', locationsRouter)
 apiRouter.use('/rooms', roomsRouter)
 apiRouter.use('/availability', availabilityRouter)
 apiRouter.use('/bookings', bookingsRouter)
+apiRouter.use('/admin', adminRouter)
+apiRouter.use('/dev', devRouter)
 
 // Mounted in later milestones:
 //   apiRouter.use('/series', seriesRouter)              M4b

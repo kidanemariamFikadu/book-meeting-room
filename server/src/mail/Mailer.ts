@@ -14,13 +14,27 @@ import nodemailer, { type Transporter } from 'nodemailer'
 import { config } from '../config.js'
 import { logger } from '../middleware/requestContext.js'
 
+export interface Attachment {
+  filename: string
+  content: string
+  contentType: string
+}
+
 export interface Message {
   to: string
   toName?: string | null
   subject: string
   text: string
   html?: string
-  replyTo?: string
+  replyTo?: string | null
+  attachments?: Attachment[]
+  /**
+   * Threads every message about one booking together in the recipient's
+   * client, which noticeably reduces inbox noise.
+   */
+  references?: string | undefined
+  /** `bulk` on reminders, so out-of-office replies do not storm back. */
+  precedence?: 'bulk' | undefined
 }
 
 export interface Mailer {
@@ -85,9 +99,22 @@ export class SmtpMailer implements Mailer {
       text: message.text,
       ...(message.html ? { html: message.html } : {}),
       ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+      ...(message.attachments?.length
+        ? {
+            attachments: message.attachments.map(a => ({
+              filename: a.filename,
+              content: a.content,
+              contentType: a.contentType,
+            })),
+          }
+        : {}),
       headers: {
         // Stops out-of-office replies storming back at the sending address.
         'Auto-Submitted': 'auto-generated',
+        ...(message.references
+          ? { References: message.references, 'In-Reply-To': message.references }
+          : {}),
+        ...(message.precedence ? { Precedence: message.precedence } : {}),
       },
     })
   }

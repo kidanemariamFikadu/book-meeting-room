@@ -11,7 +11,9 @@
 import { config } from './config.js'
 import { createApp } from './app.js'
 import { disconnect, prisma } from './db.js'
+import { startOutboxWorker, stopOutboxWorker } from './mail/OutboxWorker.js'
 import { logger } from './middleware/requestContext.js'
+import { startReminderWorker, stopReminderWorker } from './workers/ReminderWorker.js'
 
 async function main(): Promise<void> {
   logger.info(
@@ -48,11 +50,17 @@ async function main(): Promise<void> {
     }
   })
 
-  // Workers are started here in later milestones. Keeping them behind the flag
-  // lets additional instances run with WORKERS_ENABLED=false, which is how the
-  // single-instance assumption (A6) is honoured without job leases.
+  /*
+   * Workers run in this process, after the listener is up so a worker
+   * crash-loop cannot stop the app reporting its own health.
+   *
+   * The flag lets additional instances run with WORKERS_ENABLED=false, which
+   * is how the single-instance assumption (A6) is honoured without job leases.
+   * Two instances both running the reminder worker would duplicate reminders.
+   */
   if (config.WORKERS_ENABLED) {
-    logger.info('Workers enabled (none registered yet - M4)')
+    startOutboxWorker()
+    startReminderWorker()
   } else {
     logger.info('Workers disabled on this instance')
   }
@@ -73,6 +81,9 @@ async function main(): Promise<void> {
       process.exit(1)
     }, 15_000)
     forceExit.unref()
+
+    stopOutboxWorker()
+    stopReminderWorker()
 
     server.close(async closeErr => {
       if (closeErr) logger.error({ err: closeErr }, 'Error closing HTTP server')

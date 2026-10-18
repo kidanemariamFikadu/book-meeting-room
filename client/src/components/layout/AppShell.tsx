@@ -203,13 +203,11 @@ function AdminMenu({ isOwner }: { isOwner: boolean }) {
           {isOwner && <MenuLink to="/admin/locations" label="Locations" />}
           {isOwner && <MenuLink to="/admin/users" label="Users" />}
           {isOwner && <MenuLink to="/admin/settings" label="Organization settings" />}
+          <MenuLink to="/admin/emails" label="Email log" />
           <DropdownMenu.Separator className={s.menuSeparator} />
-          <DropdownMenu.Label className={s.menuLabel}>Coming in M3-M4</DropdownMenu.Label>
+          <DropdownMenu.Label className={s.menuLabel}>Coming later</DropdownMenu.Label>
           <DropdownMenu.Item className={s.menuItemDisabled} disabled>
             All bookings
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className={s.menuItemDisabled} disabled>
-            Email log
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
