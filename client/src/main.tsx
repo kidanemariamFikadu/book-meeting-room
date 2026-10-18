@@ -4,19 +4,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 
 import { App } from './App.js'
+import { AuthProvider } from './auth/AuthProvider.js'
+import { ToastProvider } from './components/ui/index.js'
 import './styles/global.css'
 
 /**
  * Defaults chosen for a calendar several people change at once
  * (docs/02-architecture.md section 8). Per-query overrides tighten these:
- * availability refetches on an interval, while rooms and users rarely change.
+ * availability will refetch on an interval, while rooms and users rarely change.
  */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
       refetchOnWindowFocus: true,
-      // A 409 or 403 will not succeed on retry; only retry what might.
+      // A 4xx will not succeed on retry; only retry what might.
       retry: (failureCount, error) => {
         const status = (error as { status?: number }).status
         if (status !== undefined && status < 500) return false
@@ -34,7 +36,13 @@ createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        {/* AuthProvider sits inside the router so its guards can redirect, and
+            inside the query client because it reads /auth/me through a hook. */}
+        <AuthProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

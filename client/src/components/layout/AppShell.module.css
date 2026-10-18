@@ -1,0 +1,265 @@
+.shell {
+  min-height: 100dvh;
+  background: var(--color-bg);
+}
+
+.skipLink {
+  position: absolute;
+  left: -9999px;
+}
+.skipLink:focus {
+  left: var(--space-4);
+  top: var(--space-2);
+  z-index: 70;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.barInner {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 84rem;
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4);
+  min-height: 54px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.brand {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  color: var(--color-text);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.brand:hover {
+  background: var(--color-surface-sunken);
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: var(--space-3);
+}
+.tab {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+.tab:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+.tabActive {
+  color: var(--color-text);
+  font-weight: 550;
+  background: var(--color-accent-subtle);
+}
+
+.switcher {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+.switcher:hover {
+  background: var(--color-surface-sunken);
+}
+.switcherName {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.singleLocation {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  font-size: var(--text-caption);
+  font-weight: 650;
+  color: var(--color-text-inverse);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 50%;
+}
+
+/* ---- Dropdown menus ---- */
+.menu {
+  min-width: 15rem;
+  padding: var(--space-1);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+}
+.menuLabel {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+.menuItem,
+.menuItemDisabled {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+}
+.menuItem[data-highlighted] {
+  background: var(--color-accent-subtle);
+}
+.menuItemDisabled {
+  color: var(--color-text-subtle);
+  cursor: default;
+}
+.menuCheck {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  flex: none;
+  color: var(--color-accent);
+}
+.menuItemName {
+  flex: 1;
+}
+.menuItemMeta {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--color-text-subtle);
+}
+.menuSeparator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--color-border);
+}
+.menuHeader {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+}
+.menuHeader strong {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+.menuRole {
+  text-transform: capitalize;
+  color: var(--color-text-subtle);
+}
+
+/* ---- Mobile ---- */
+.menuButton {
+  display: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: var(--color-text);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.mobileNav {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.mobileHeading {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+.mobileLink {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+.mobileLinkActive {
+  background: var(--color-accent-subtle);
+  font-weight: 550;
+}
+
+/* Below 820px the inline tabs would wrap and crowd the switcher, so they move
+   into the menu button instead. */
+@media (max-width: 820px) {
+  .nav {
+    display: none;
+  }
+  .menuButton {
+    display: grid;
+  }
+  .switcherName {
+    max-width: 6rem;
+  }
+}
+
+.main {
+  max-width: 84rem;
+  /* 16px side gutter, so nothing touches the edge on a phone. */
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+}
+
+/* ---- Auth screens ---- */
+.centred {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+}
+.centredInner {
+  width: 100%;
+  max-width: 24rem;
+}
