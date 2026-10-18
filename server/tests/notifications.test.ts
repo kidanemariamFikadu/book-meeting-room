@@ -637,3 +637,103 @@ describe('template rendering', () => {
     expect(rendered.text).not.toContain('Room:\n  Before:')
   })
 })
+
+// ---------------------------------------------------------------------------
+
+describe('approval-required rooms', () => {
+  beforeEach(async () => {
+    await prisma.room.update({
+      where: { id: fx.hqRoomId },
+      data: { requiresApproval: true },
+    })
+  })
+
+  /**
+   * Reported from real use: booking an approval-required room sent an email
+   * saying "Confirmed" before anyone had approved it.
+   *
+   * Three separate defects produced that: the template was hardcoded to
+   * booking_confirmed, the subject fell through to a "Confirmed:" default, and
+   * a calendar invitation was attached for a booking that might be rejected.
+   */
+  it('does not say confirmed for a booking that is awaiting approval', async () => {
+    const res = await employee.post('/api/v1/bookings', {
+      roomId: fx.hqRoomId,
+      title: 'Board meeting',
+      startsAt: at(`${DAY}T09:00`),
+      endsAt: at(`${DAY}T10:00`),
+    })
+    expect(res.status).toBe(201)
+    expect(res.body.data.status).toBe('PENDING_APPROVAL')
+
+    const row = await prisma.emailOutbox.findFirstOrThrow({
+      where: { bookingId: res.body.data.id },
+    })
+
+    expect(row.template).toBe('booking_pending')
+    expect(row.subject).not.toMatch(/confirmed/i)
+    expect(row.subject).toMatch(/^Requested:/)
+
+    await processOutbox()
+    const sent = mailer.sent[0]!
+    expect(sent.subject).not.toMatch(/confirmed/i)
+    expect(sent.text).not.toMatch(/your booking is confirmed/i)
+    expect(sent.text).toMatch(/awaiting approval/i)
+  })
+
+  /**
+   * BR-A13. A tentative calendar entry that may vanish is worse than none:
+   * the recipient plans around a meeting that was never approved.
+   */
+  it('BR-A13: attaches no calendar invitation until the booking is approved', async () => {
+    const res = await employee.post('/api/v1/bookings', {
+      roomId: fx.hqRoomId,
+      title: 'Board meeting',
+      startsAt: at(`${DAY}T09:00`),
+      endsAt: at(`${DAY}T10:00`),
+    })
+
+    const row = await prisma.emailOutbox.findFirstOrThrow({
+      where: { bookingId: res.body.data.id },
+    })
+    expect(row.icsMethod).toBeNull()
+
+    await processOutbox()
+    expect(mailer.sent[0]!.attachments ?? []).toHaveLength(0)
+  })
+
+  it('still says confirmed for a room that needs no approval', async () => {
+    await prisma.room.update({
+      where: { id: fx.hqRoomId },
+      data: { requiresApproval: false },
+    })
+
+    const res = await employee.post('/api/v1/bookings', {
+      roomId: fx.hqRoomId,
+      title: 'Ordinary meeting',
+      startsAt: at(`${DAY}T09:00`),
+      endsAt: at(`${DAY}T10:00`),
+    })
+
+    const row = await prisma.emailOutbox.findFirstOrThrow({
+      where: { bookingId: res.body.data.id },
+    })
+    expect(row.template).toBe('booking_confirmed')
+    expect(row.subject).toMatch(/^Confirmed:/)
+    expect(row.icsMethod).toBe('REQUEST')
+  })
+
+  it('tells the requester the room is being held for them', async () => {
+    const res = await employee.post('/api/v1/bookings', {
+      roomId: fx.hqRoomId,
+      title: 'Board meeting',
+      startsAt: at(`${DAY}T09:00`),
+      endsAt: at(`${DAY}T10:00`),
+    })
+    void res
+
+    await processOutbox()
+    // The useful reassurance: nobody can book over it while it waits.
+    expect(mailer.sent[0]!.text).toMatch(/held for you/i)
+  })
+})

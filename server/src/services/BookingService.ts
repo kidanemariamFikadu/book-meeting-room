@@ -424,7 +424,19 @@ export async function create(
           tx,
         )
 
-        await queueBookingEmails(tx, booking, ctx, 'booking_confirmed')
+        /*
+         * The template follows the STATUS, not the act of booking.
+         *
+         * Telling someone their booking is confirmed when it is actually
+         * waiting on an approver is worse than saying nothing: they plan
+         * around a room they may not get (BR-A1).
+         */
+        await queueBookingEmails(
+          tx,
+          booking,
+          ctx,
+          status === 'PENDING_APPROVAL' ? 'booking_pending' : 'booking_confirmed',
+        )
 
         return booking
       },
@@ -575,10 +587,17 @@ function icsMethodFor(template: string): 'REQUEST' | 'CANCEL' | null {
     case 'booking_invitation':
     case 'booking_moved':
     case 'booking_updated':
-    case 'booking_pending':
       return 'REQUEST'
     case 'booking_cancelled':
       return 'CANCEL'
+    /*
+     * BR-A13: a booking awaiting approval gets NO calendar invitation.
+     *
+     * A tentative entry that may later vanish is worse than none - the
+     * recipient plans around a meeting that was never approved. The invitation
+     * is sent when the request is approved.
+     */
+    case 'booking_pending':
     default:
       return null
   }
@@ -611,6 +630,10 @@ function subjectWhen(start: Date, end: Date, timeZone: string): string {
 
 function subjectFor(template: string, title: string, room: string, when: string): string {
   switch (template) {
+    // "Requested", never "Confirmed": the subject line is often all someone
+    // reads, so it must not promise a room that is still awaiting approval.
+    case 'booking_pending':
+      return `Requested: ${title} - ${room}, ${when}`
     case 'booking_moved':
       return `Moved: ${title} - now ${room}, ${when}`
     case 'booking_cancelled':
